@@ -231,12 +231,19 @@ export function App() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {comparisons.map(({ ruleset, score, immutableMatchLabel, error }) => (
                 <div key={ruleset.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem' }}>
-                    <span style={{ fontWeight: 'bold' }}>{ruleset.name}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.95rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <span style={{ fontWeight: 'bold' }}>{ruleset.name}</span>
+                      {score !== null && (
+                        <span style={{ fontSize: '0.85rem', color: '#475569' }}>
+                          (Immutability: <strong style={{ color: '#0f172a' }}>{immutableMatchLabel}</strong>)
+                        </span>
+                      )}
+                    </div>
                     <span>{score !== null ? `${score.toFixed(1)}% match` : error}</span>
                   </div>
 
-                  {/* Percentage Bar (Placed above immutability) */}
+                  {/* Percentage Bar */}
                   {score !== null && (
                     <div style={{ height: '10px', background: '#e2e8f0', borderRadius: '5px', overflow: 'hidden' }}>
                       <div
@@ -247,13 +254,6 @@ export function App() {
                           borderRadius: '5px',
                         }}
                       />
-                    </div>
-                  )}
-
-                  {/* Immutability details */}
-                  {score !== null && (
-                    <div style={{ fontSize: '0.85rem', color: '#475569' }}>
-                      Immutability: <strong style={{ color: '#0f172a' }}>{immutableMatchLabel}</strong>
                     </div>
                   )}
                 </div>
