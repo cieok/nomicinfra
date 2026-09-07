@@ -248,20 +248,11 @@ export function App() {
           <div style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem' }}>
             <h3 style={{ marginTop: 0 }}>Similarity to Other Nomics</h3>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               {comparisons.map(({ ruleset, score, immutableMatchLabel, sizeText, error }) => (
-                <div key={ruleset.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem' }}>
+                <div key={ruleset.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.95rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <span style={{ fontWeight: 'bold' }}>{ruleset.name}</span>
-                      {score !== null && (
-                        <span style={{ fontSize: '0.85rem', color: '#475569' }}>
-                          (Immutability: <strong style={{ color: '#0f172a' }}>{immutableMatchLabel}</strong>
-                          {sizeText !== null && `, Size: ${sizeText}`}
-                          )
-                        </span>
-                      )}
-                    </div>
+                    <span style={{ fontWeight: 'bold' }}>{ruleset.name}</span>
                     <span>{score !== null ? `${score.toFixed(1)}% match` : error}</span>
                   </div>
 
@@ -276,6 +267,14 @@ export function App() {
                           borderRadius: '5px',
                         }}
                       />
+                    </div>
+                  )}
+
+                  {/* Immutability & Size details moved under the bar */}
+                  {score !== null && (
+                    <div style={{ textAlign: 'left', fontSize: '0.85rem', color: '#475569' }}>
+                      Immutability: <strong style={{ color: '#0f172a' }}>{immutableMatchLabel}</strong>
+                      {sizeText !== null && ` | Size: ${sizeText}`}
                     </div>
                   )}
                 </div>
