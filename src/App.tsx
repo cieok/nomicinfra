@@ -13,8 +13,8 @@ const RULESETS: RulesetConfig[] = [
   {
     id: 'agora',
     name: 'Agora Nomic',
-    fetchUrl: 'https://agoranomic.org/ruleset/flr-fresh.txt',
-    linkUrl: 'https://agoranomic.org/ruleset/flr-fresh.txt',
+    fetchUrl: 'https://agoranomic.org/ruleset/slr.txt',
+    linkUrl: 'https://agoranomic.org/ruleset/slr.txt',
     homeUrl: 'https://agoranomic.org/',
   },
   {
