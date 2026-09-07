@@ -64,6 +64,22 @@ function calculateJaccardSimilarity(setA: Set<string>, setB: Set<string>): numbe
   return unionSize > 0 ? (intersectionSize / unionSize) * 100 : 0;
 }
 
+/**
+ * Formats comparative word count size as "X times bigger" or "X times smaller".
+ */
+function formatSizeComparison(currentWords: number, targetWords: number): string {
+  if (targetWords === 0 || currentWords === 0) return 'N/A';
+  if (currentWords === targetWords) return 'Same size';
+
+  if (currentWords > targetWords) {
+    const ratio = currentWords / targetWords;
+    return `${ratio.toFixed(2)} times smaller`;
+  } else {
+    const ratio = targetWords / currentWords;
+    return `${ratio.toFixed(2)} times bigger`;
+  }
+}
+
 export function App() {
   const [dataMap, setDataMap] = useState<Record<string, MetricData>>(() => {
     const initialMap: Record<string, MetricData> = {};
@@ -148,6 +164,7 @@ export function App() {
           ruleset: other, 
           score: null, 
           immutableMatchLabel: 'Loading...',
+          sizeText: null,
           error: otherMetrics?.error || 'Loading...' 
         };
       }
@@ -162,10 +179,13 @@ export function App() {
         immutableMatchLabel = 'differs';
       }
 
+      const sizeText = formatSizeComparison(currentMetrics.words, otherMetrics.words);
+
       return { 
         ruleset: other, 
         score, 
         immutableMatchLabel,
+        sizeText,
         error: null 
       };
     });
@@ -229,14 +249,16 @@ export function App() {
             <h3 style={{ marginTop: 0 }}>Similarity to Other Nomics</h3>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {comparisons.map(({ ruleset, score, immutableMatchLabel, error }) => (
+              {comparisons.map(({ ruleset, score, immutableMatchLabel, sizeText, error }) => (
                 <div key={ruleset.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.95rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                       <span style={{ fontWeight: 'bold' }}>{ruleset.name}</span>
                       {score !== null && (
                         <span style={{ fontSize: '0.85rem', color: '#475569' }}>
-                          (Immutability: <strong style={{ color: '#0f172a' }}>{immutableMatchLabel}</strong>)
+                          (Immutability: <strong style={{ color: '#0f172a' }}>{immutableMatchLabel}</strong>
+                          {sizeText !== null && `, Size: ${sizeText}`}
+                          )
                         </span>
                       )}
                     </div>
