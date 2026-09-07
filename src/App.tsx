@@ -241,6 +241,22 @@ export function App() {
             </div>
           </div>
 
+          {/* Core Metrics Totals */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+          
+            <div style={{ background: '#f8fafc', padding: '1rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
+              <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Ruleset size</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{currentMetrics.words.toLocaleString()} words</div>
+            </div>
+            <div style={{ background: '#f8fafc', padding: '1rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
+              <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Immutable Rules</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#0f172a' }}>
+                {currentMetrics.hasImmutable ? 'Yes' : 'No'}
+              </div>
+            </div>
+          </div>
+
+
           {/* Similarity Analysis Section */}
           <div style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem' }}>
             <h3 style={{ marginTop: 0 }}>Similarity to Other Nomics</h3>
@@ -276,20 +292,6 @@ export function App() {
                   )}
                 </div>
               ))}
-            </div>
-          </div>
-
-          {/* Core Metrics Totals */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-            <div style={{ background: '#f8fafc', padding: '1rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
-              <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Immutable Rules</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#0f172a' }}>
-                {currentMetrics.hasImmutable ? 'Yes' : 'No'}
-              </div>
-            </div>
-            <div style={{ background: '#f8fafc', padding: '1rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
-              <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Total Words</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{currentMetrics.words.toLocaleString()}</div>
             </div>
           </div>
 
