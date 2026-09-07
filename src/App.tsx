@@ -5,6 +5,7 @@ interface RulesetConfig {
   name: string;
   fetchUrl: string;
   linkUrl: string;
+  homeUrl: string; // Added homeUrl property
   isJsonApi?: boolean;
 }
 
@@ -14,12 +15,14 @@ const RULESETS: RulesetConfig[] = [
     name: 'Agora Nomic',
     fetchUrl: 'https://agoranomic.org/ruleset/flr-fresh.txt',
     linkUrl: 'https://agoranomic.org/ruleset/flr-fresh.txt',
+    homeUrl: 'https://agoranomic.org/',
   },
   {
     id: 'blognomic',
     name: 'BlogNomic',
     fetchUrl: 'https://wiki.blognomic.com/api.php?action=parse&page=Ruleset&format=json&prop=wikitext&origin=*',
     linkUrl: 'https://wiki.blognomic.com/index.php?title=Ruleset',
+    homeUrl: 'https://blognomic.com/',
     isJsonApi: true,
   },
   {
@@ -27,6 +30,7 @@ const RULESETS: RulesetConfig[] = [
     name: 'Infinite Nomic',
     fetchUrl: 'https://infinite.nomic.space/wiki/api.php?action=parse&page=Metaruleset&format=json&prop=wikitext&origin=*',
     linkUrl: 'https://infinite.nomic.space/wiki/index.php?title=Metaruleset',
+    homeUrl: 'https://infinite.nomic.space/',
     isJsonApi: true,
   },
 ];
@@ -210,9 +214,14 @@ export function App() {
           {/* Header Info */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <h2>{currentRuleset.name}</h2>
-            <a href={currentRuleset.linkUrl} target="_blank" rel="noreferrer" style={{ color: '#2563eb', textDecoration: 'underline' }}>
-              View Ruleset ↗
-            </a>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <a href={currentRuleset.homeUrl} target="_blank" rel="noreferrer" style={{ color: '#2563eb', textDecoration: 'underline' }}>
+                View Game ↗
+              </a>
+              <a href={currentRuleset.linkUrl} target="_blank" rel="noreferrer" style={{ color: '#2563eb', textDecoration: 'underline' }}>
+                View Ruleset ↗
+              </a>
+            </div>
           </div>
 
           {/* Similarity Analysis Section */}
