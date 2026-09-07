@@ -38,7 +38,6 @@ const RULESETS: RulesetConfig[] = [
 interface MetricData {
   words: number;
   characters: number;
-  lines: number;
   hasImmutable: boolean;
   content: string;
   wordSet: Set<string>;
@@ -87,7 +86,6 @@ export function App() {
       initialMap[r.id] = {
         words: 0,
         characters: 0,
-        lines: 0,
         hasImmutable: false,
         content: '',
         wordSet: new Set(),
@@ -125,7 +123,6 @@ export function App() {
     return {
       words: text.trim() ? text.trim().split(/\s+/).length : 0,
       characters: text.length,
-      lines: text ? text.split('\n').length : 0,
       hasImmutable,
       content: text,
       wordSet: new Set(tokens),
@@ -293,14 +290,6 @@ export function App() {
             <div style={{ background: '#f8fafc', padding: '1rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
               <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Total Words</div>
               <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{currentMetrics.words.toLocaleString()}</div>
-            </div>
-            <div style={{ background: '#f8fafc', padding: '1rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
-              <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Total Characters</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{currentMetrics.characters.toLocaleString()}</div>
-            </div>
-            <div style={{ background: '#f8fafc', padding: '1rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
-              <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Total Lines</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{currentMetrics.lines.toLocaleString()}</div>
             </div>
           </div>
 
