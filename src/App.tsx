@@ -211,7 +211,7 @@ export function App() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <h2>{currentRuleset.name}</h2>
             <a href={currentRuleset.linkUrl} target="_blank" rel="noreferrer" style={{ color: '#2563eb', textDecoration: 'underline' }}>
-              View Source ↗
+              View Ruleset ↗
             </a>
           </div>
 
@@ -272,7 +272,7 @@ export function App() {
             </div>
           </div>
 
-          {/* Rule Preview Toggle */}
+          {/* Ruleset Preview Toggle */}
           <div>
             <button
               onClick={() => setShowRawText(!showRawText)}
@@ -285,7 +285,7 @@ export function App() {
                 fontWeight: 'bold',
               }}
             >
-              📄 {showRawText ? 'Hide' : 'Show'} Rule Preview
+              📄 {showRawText ? 'Hide' : 'Show'} Ruleset Preview
             </button>
 
             {showRawText && (
