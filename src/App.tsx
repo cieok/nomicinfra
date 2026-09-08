@@ -1,4 +1,4 @@
-                  import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 interface RulesetConfig {
   id: string;
@@ -40,6 +40,7 @@ interface MetricData {
   characters: number;
   content: string;
   wordSet: Set<string>;
+  wordCounts: Map<string, number>;
   loading: boolean;
   error: string | null;
 }
@@ -80,6 +81,7 @@ export function App() {
         characters: 0,
         content: '',
         wordSet: new Set(),
+        wordCounts: new Map(),
         loading: true,
         error: null,
       };
@@ -109,11 +111,18 @@ export function App() {
       .split(/\s+/)
       .filter(Boolean);
 
+    // Track term frequency across the ruleset
+    const wordCounts = new Map<string, number>();
+    tokens.forEach((token) => {
+      wordCounts.set(token, (wordCounts.get(token) || 0) + 1);
+    });
+
     return {
       words: text.trim() ? text.trim().split(/\s+/).length : 0,
       characters: text.length,
       content: text,
       wordSet: new Set(tokens),
+      wordCounts,
     };
   };
 
@@ -165,8 +174,8 @@ export function App() {
     });
   }, [currentRuleset, currentMetrics, dataMap]);
 
-  // Compute unique words in the active ruleset
-  const uniqueWords = useMemo(() => {
+  // Compute unique words in the active ruleset sorted by frequency
+  const uniqueWordsWithCounts = useMemo(() => {
     if (!currentMetrics || currentMetrics.loading || currentMetrics.error) return [];
 
     // Union of words in all other loaded rulesets
@@ -178,7 +187,7 @@ export function App() {
     });
 
     // Find words in active set that don't exist in others
-    const filteredUniqueWords: string[] = [];
+    const uniqueList: { word: string; count: number }[] = [];
     currentMetrics.wordSet.forEach((word) => {
       const containsDigit = /\d/.test(word);
       const isHttp = word.startsWith('http');
@@ -189,11 +198,15 @@ export function App() {
         !isHttp &&
         !otherWordsSet.has(word)
       ) {
-        filteredUniqueWords.push(word);
+        uniqueList.push({
+          word,
+          count: currentMetrics.wordCounts.get(word) || 1,
+        });
       }
     });
 
-    return filteredUniqueWords.sort();
+    // Sort descending by frequency, falling back to alphabetical for ties
+    return uniqueList.sort((a, b) => b.count - a.count || a.word.localeCompare(b.word));
   }, [currentRuleset, currentMetrics, dataMap]);
 
   return (
@@ -258,7 +271,7 @@ export function App() {
             <div style={{ background: '#f8fafc', padding: '1rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
               <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Unique Words</div>
               <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2563eb' }}>
-                {uniqueWords.length.toLocaleString()}
+                {uniqueWordsWithCounts.length.toLocaleString()}
               </div>
             </div>
           </div>
@@ -303,13 +316,13 @@ export function App() {
           <div style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem' }}>
             <h3 style={{ marginTop: 0 }}>Unique Words</h3>
             <p style={{ fontSize: '0.875rem', color: '#64748b', marginTop: '-0.5rem' }}>
-              Words that appear in <strong>{currentRuleset.name}</strong> ruleset but do not appear in any other active ruleset.
+              Words that appear in <strong>{currentRuleset.name}</strong> but do not appear in any other active ruleset, ordered by occurrences.
             </p>
 
-            {/* Display Words */}
-            <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexWrap: 'wrap', gap: '0.35rem', padding: '0.5rem', background: '#f1f5f9', borderRadius: '6px' }}>
-              {uniqueWords.length > 0 ? (
-                uniqueWords.map((word) => (
+            {/* Display Words with Count Badges */}
+            <div style={{ maxHeight: '250px', overflowY: 'auto', display: 'flex', flexWrap: 'wrap', gap: '0.35rem', padding: '0.5rem', background: '#f1f5f9', borderRadius: '6px' }}>
+              {uniqueWordsWithCounts.length > 0 ? (
+                uniqueWordsWithCounts.map(({ word, count }) => (
                   <span
                     key={word}
                     style={{
@@ -319,9 +332,24 @@ export function App() {
                       borderRadius: '4px',
                       fontSize: '0.8rem',
                       color: '#1e293b',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.35rem',
                     }}
                   >
-                    {word}
+                    <span>{word}</span>
+                    <span
+                      style={{
+                        background: '#e2e8f0',
+                        color: '#475569',
+                        borderRadius: '999px',
+                        padding: '0.05rem 0.35rem',
+                        fontSize: '0.7rem',
+                        fontWeight: 'bold',
+                      }}
+                    >
+                      {count}
+                    </span>
                   </span>
                 ))
               ) : (
