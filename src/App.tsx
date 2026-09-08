@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+                  import { useState, useEffect, useMemo } from 'react';
 
 interface RulesetConfig {
   id: string;
@@ -38,7 +38,6 @@ const RULESETS: RulesetConfig[] = [
 interface MetricData {
   words: number;
   characters: number;
-  hasImmutable: boolean;
   content: string;
   wordSet: Set<string>;
   loading: boolean;
@@ -79,7 +78,6 @@ export function App() {
       initialMap[r.id] = {
         words: 0,
         characters: 0,
-        hasImmutable: false,
         content: '',
         wordSet: new Set(),
         loading: true,
@@ -111,12 +109,9 @@ export function App() {
       .split(/\s+/)
       .filter(Boolean);
 
-    const hasImmutable = /\bimmutable\b/i.test(text);
-
     return {
       words: text.trim() ? text.trim().split(/\s+/).length : 0,
       characters: text.length,
-      hasImmutable,
       content: text,
       wordSet: new Set(tokens),
     };
@@ -153,28 +148,17 @@ export function App() {
         return { 
           ruleset: other, 
           score: null, 
-          immutableMatchLabel: 'Loading...',
           sizeText: null,
           error: otherMetrics?.error || 'Loading...' 
         };
       }
 
       const score = calculateJaccardSimilarity(currentMetrics.wordSet, otherMetrics.wordSet);
-      const isMatch = currentMetrics.hasImmutable === otherMetrics.hasImmutable;
-      
-      let immutableMatchLabel = '';
-      if (isMatch) {
-        immutableMatchLabel = currentMetrics.hasImmutable ? 'also yes' : 'also no';
-      } else {
-        immutableMatchLabel = 'differs';
-      }
-
       const sizeText = formatSizeComparison(currentMetrics.words, otherMetrics.words);
 
       return { 
         ruleset: other, 
         score, 
-        immutableMatchLabel,
         sizeText,
         error: null 
       };
@@ -272,12 +256,6 @@ export function App() {
               <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{currentMetrics.words.toLocaleString()} words</div>
             </div>
             <div style={{ background: '#f8fafc', padding: '1rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
-              <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Immutable Rules</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#0f172a' }}>
-                {currentMetrics.hasImmutable ? 'Yes' : 'No'}
-              </div>
-            </div>
-            <div style={{ background: '#f8fafc', padding: '1rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
               <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Unique Words</div>
               <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2563eb' }}>
                 {uniqueWords.length.toLocaleString()}
@@ -290,7 +268,7 @@ export function App() {
             <h3 style={{ marginTop: 0 }}>Similarity to Other Nomics</h3>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              {comparisons.map(({ ruleset, score, immutableMatchLabel, sizeText, error }) => (
+              {comparisons.map(({ ruleset, score, sizeText, error }) => (
                 <div key={ruleset.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.95rem' }}>
                     <span style={{ fontWeight: 'bold' }}>{ruleset.name}</span>
@@ -311,10 +289,9 @@ export function App() {
                     </div>
                   )}
 
-                  {score !== null && (
+                  {score !== null && sizeText !== null && (
                     <div style={{ textAlign: 'left', fontSize: '0.85rem', color: '#475569' }}>
-                      Immutability: <strong style={{ color: '#0f172a' }}>{immutableMatchLabel}</strong>
-                      {sizeText !== null && ` | Size: ${sizeText}`}
+                      Size: {sizeText}
                     </div>
                   )}
                 </div>
@@ -326,7 +303,7 @@ export function App() {
           <div style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem' }}>
             <h3 style={{ marginTop: 0 }}>Unique Words</h3>
             <p style={{ fontSize: '0.875rem', color: '#64748b', marginTop: '-0.5rem' }}>
-              Words that appear in <strong>{currentRuleset.name}</strong> but do not appear in any other active ruleset.
+              Words that appear in <strong>{currentRuleset.name}</strong> ruleset but do not appear in any other active ruleset.
             </p>
 
             {/* Display Words */}
