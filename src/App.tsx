@@ -368,7 +368,7 @@ export function App() {
           {/* Top Words Section */}
           <div className="card">
             <div className="section-header">
-              <h3>Top Words</h3>
+              <h3>Top Words in Ruleset</h3>
               <button
                 onClick={() => setShowTopWordsHelp(!showTopWordsHelp)}
                 className="help-button"
@@ -380,6 +380,7 @@ export function App() {
 
             {showTopWordsHelp && (
               <p className="help-text">
+                Number next to the word is a count.
                 Words ordered by how disproportionately often they appear in <strong>{currentRuleset.name}</strong> ruleset relative to the other rulesets (normalized by total words).
               </p>
             )}
@@ -387,17 +388,15 @@ export function App() {
             <div className="words-container top-words-container">
               {topWords.length > 0 ? (
                 topWords.map(({ word, score, count }) => {
-                  const formattedScore = score >= 10 ? `${Math.round(score)}` : `${score.toFixed(1)}`;
-
                   return (
                     <span
                       key={word}
-                      title={`Appears ${count} times. ${score.toFixed(1)}x more frequent here.`}
+                      title={`Appears ${count} times. ${score.toFixed(1)}x more frequent than in normalized ruleset.`}
                       className="word-badge help-cursor"
                     >
                       <span>{word}</span>
                       <span className="count-pill">
-                        {formattedScore}
+                        {count}
                       </span>
                     </span>
                   );
@@ -415,9 +414,9 @@ export function App() {
               <div className="metric-value">{currentMetrics.words.toLocaleString()} words</div>
             </div>
             <div className="metric-card">
-              <div className="metric-label">Unique Vocabulary</div>
+              <div className="metric-label">Unique words</div>
               <div className="metric-value highlight">
-                {currentMetrics.wordSet.size.toLocaleString()} terms
+                {currentMetrics.wordSet.size.toLocaleString()}
               </div>
             </div>
           </div>
