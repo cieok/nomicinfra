@@ -414,7 +414,7 @@ export function App() {
               </p>
             )}
 
-            <div style={{ maxHeight: '140px', overflowY: 'auto', display: 'flex', flexWrap: 'wrap', gap: '0.35rem', padding: '0.5rem', background: '#f1f5f9', borderRadius: '6px', marginTop: '1rem' }}>
+            <div style={{ maxHeight: '155px', overflowY: 'auto', display: 'flex', flexWrap: 'wrap', gap: '0.35rem', padding: '0.5rem', background: '#f1f5f9', borderRadius: '6px', marginTop: '1rem' }}>
               {topWords.length > 0 ? (
                 topWords.map(({ word, score, count }) => {
                   const formattedScore = score >= 10 ? `${Math.round(score)}` : `${score.toFixed(1)}`;
