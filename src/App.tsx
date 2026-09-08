@@ -35,11 +35,13 @@ const RULESETS: RulesetConfig[] = [
   },
 ];
 
-// Words to explicitly block from becoming AKA titles (structural/meta words)
+// Structural, procedural, or meta words strictly forbidden from appearing in AKA titles
 const BANNED_AKA_WORDS = new Set([
-  'Decision',
-  'rules',
-  'ruleset',
+  'decision',
+  'decisions',
+  'server',
+  'votable',
+  'post',
   'section',
   'page',
   'wikitext',
@@ -50,6 +52,7 @@ const BANNED_AKA_WORDS = new Set([
   'format',
   'index',
   'title',
+  'nomic',
 ]);
 
 interface MetricData {
@@ -90,7 +93,21 @@ function formatSizeComparison(currentWords: number, targetWords: number): string
 }
 
 /**
-  Filters characteristic words to avoid ones similar to the original name or to previously selected words.
+ * Robust check to see if two words share a common root stem (e.g. "office" & "officer", "decide" & "decision")
+ */
+function shareCommonStem(w1: string, w2: string): boolean {
+  const minLength = Math.min(w1.length, w2.length);
+  // Compare up to the first 4 characters for root similarity
+  const prefixLength = Math.min(4, minLength);
+  
+  if (w1.substring(0, prefixLength) === w2.substring(0, prefixLength)) {
+    return true;
+  }
+  return w1.includes(w2) || w2.includes(w1);
+}
+
+/**
+ * Selects top characteristic words guaranteed to exclude banned words and duplicate word roots.
  */
 function getDistinctCharacteristicWords(
   characteristicWords: { word: string; score: number; count: number }[],
@@ -104,25 +121,22 @@ function getDistinctCharacteristicWords(
     if (result.length >= limit) break;
     const lowerWord = item.word.toLowerCase();
 
-    if (BANNED_AKA_WORDS.has(lowerWord)) continue;
+    // 1. Strict Blacklist Check
+    if (BANNED_AKA_WORDS.has(lowerWord)) {
+      continue;
+    }
 
-    // Skip words that match or start with the base name prefix
-    const isTooSimilarToBase = basePrefix && (lowerWord.startsWith(basePrefix) || basePrefix.startsWith(lowerWord));
+    // 2. Base Name Similarity Check
+    if (basePrefix && shareCommonStem(lowerWord, basePrefix)) {
+      continue;
+    }
 
-    // Skip words sharing stems/prefixes with previously selected AKA words
-    const isDuplicateOrStem = result.some((selected) => {
-      const lowerSelected = selected.toLowerCase();
-      const minLength = Math.min(lowerSelected.length, lowerWord.length);
-      const prefixLength = Math.min(3, minLength);
+    // 3. Previously Selected Word Similarity Check
+    const isDuplicateOrStem = result.some((selected) => 
+      shareCommonStem(lowerWord, selected.toLowerCase())
+    );
 
-      return (
-        lowerSelected.substring(0, prefixLength) === lowerWord.substring(0, prefixLength) ||
-        lowerWord.includes(lowerSelected) ||
-        lowerSelected.includes(lowerWord)
-      );
-    });
-
-    if (!isTooSimilarToBase && !isDuplicateOrStem) {
+    if (!isDuplicateOrStem) {
       result.push(item.word);
     }
   }
@@ -359,7 +373,7 @@ export function App() {
                   aka{' '}
                   {akaListWords
                     .map((word) => `${word.charAt(0).toUpperCase() + word.slice(1)} Nomic`)
-                    .join(' aka ')}
+                    .join(' aka ') +' 😉'}
                 </p>
               )}
             </div>
