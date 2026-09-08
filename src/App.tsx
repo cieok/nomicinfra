@@ -181,8 +181,8 @@ export function App() {
     });
   }, [currentRuleset, currentMetrics, dataMap]);
 
-  // Compute words unique to the active ruleset
-  const rareWords = useMemo(() => {
+  // Compute unique words in the active ruleset
+  const uniqueWords = useMemo(() => {
     if (!currentMetrics || currentMetrics.loading || currentMetrics.error) return [];
 
     // Union of words in all other loaded rulesets
@@ -194,7 +194,7 @@ export function App() {
     });
 
     // Find words in active set that don't exist in others
-    const uniqueWords: string[] = [];
+    const filteredUniqueWords: string[] = [];
     currentMetrics.wordSet.forEach((word) => {
       const containsDigit = /\d/.test(word);
       const isHttp = word.startsWith('http');
@@ -205,11 +205,11 @@ export function App() {
         !isHttp &&
         !otherWordsSet.has(word)
       ) {
-        uniqueWords.push(word);
+        filteredUniqueWords.push(word);
       }
     });
 
-    return uniqueWords.sort();
+    return filteredUniqueWords.sort();
   }, [currentRuleset, currentMetrics, dataMap]);
 
   return (
@@ -278,9 +278,9 @@ export function App() {
               </div>
             </div>
             <div style={{ background: '#f8fafc', padding: '1rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
-              <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Unique (Rare) Words</div>
+              <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Unique Words</div>
               <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2563eb' }}>
-                {rareWords.length.toLocaleString()}
+                {uniqueWords.length.toLocaleString()}
               </div>
             </div>
           </div>
@@ -322,17 +322,17 @@ export function App() {
             </div>
           </div>
 
-          {/* Rare Words Section */}
+          {/* Unique Words Section */}
           <div style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem' }}>
-            <h3 style={{ marginTop: 0 }}>Unique Rare Words</h3>
+            <h3 style={{ marginTop: 0 }}>Unique Words</h3>
             <p style={{ fontSize: '0.875rem', color: '#64748b', marginTop: '-0.5rem' }}>
               Words that appear in <strong>{currentRuleset.name}</strong> but do not appear in any other active ruleset.
             </p>
 
             {/* Display Words */}
             <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexWrap: 'wrap', gap: '0.35rem', padding: '0.5rem', background: '#f1f5f9', borderRadius: '6px' }}>
-              {rareWords.length > 0 ? (
-                rareWords.map((word) => (
+              {uniqueWords.length > 0 ? (
+                uniqueWords.map((word) => (
                   <span
                     key={word}
                     style={{
@@ -348,7 +348,7 @@ export function App() {
                   </span>
                 ))
               ) : (
-                <span style={{ fontSize: '0.85rem', color: '#64748b' }}>No unique rare words found.</span>
+                <span style={{ fontSize: '0.85rem', color: '#64748b' }}>No unique words found.</span>
               )}
             </div>
           </div>
