@@ -38,7 +38,6 @@ const RULESETS: RulesetConfig[] = [
 // Editable Ignore List for words that appear due to formatting artifacts/APIs
 const DEFAULT_IGNORE_LIST = [
   'div',
-  'http',
 ];
 
 interface MetricData {
@@ -215,10 +214,12 @@ export function App() {
     const uniqueWords: string[] = [];
     currentMetrics.wordSet.forEach((word) => {
       const containsDigit = /\d/.test(word);
+      const isHttp = word.startsWith('http');
 
       if (
         word.length > 1 &&
         !containsDigit &&
+        !isHttp &&
         !otherWordsSet.has(word) &&
         !ignoreSet.has(word)
       ) {
@@ -355,7 +356,7 @@ export function App() {
                 type="text"
                 value={ignoreInput}
                 onChange={(e) => setIgnoreInput(e.target.value)}
-                placeholder="div, span, http, ..."
+                placeholder="div, span, ..."
                 style={{
                   width: '100%',
                   padding: '0.5rem',
