@@ -340,7 +340,7 @@ export function App() {
                         fontWeight: 'bold',
                       }}
                     >
-                      {score > 99 ? '99+x' : `${score.toFixed(1)}x`}
+                      {score.toFixed(1)}x
                     </span>
                   </span>
                 ))
