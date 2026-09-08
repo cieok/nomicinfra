@@ -312,38 +312,42 @@ export function App() {
 
             <div style={{ maxHeight: '250px', overflowY: 'auto', display: 'flex', flexWrap: 'wrap', gap: '0.35rem', padding: '0.5rem', background: '#f1f5f9', borderRadius: '6px' }}>
               {characteristicWords.length > 0 ? (
-                characteristicWords.map(({ word, score, count }) => (
-                  <span
-                    key={word}
-                    title={`Appears ${count} times. ${score.toFixed(1)}x more frequent here.`}
-                    style={{
-                      background: '#ffffff',
-                      border: '1px solid #cbd5e1',
-                      padding: '0.2rem 0.5rem',
-                      borderRadius: '4px',
-                      fontSize: '0.8rem',
-                      color: '#1e293b',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.35rem',
-                      cursor: 'help',
-                    }}
-                  >
-                    <span>{word}</span>
+                characteristicWords.map(({ word, score, count }) => {
+                  const formattedScore = score >= 10 ? `${Math.round(score)}x` : `${score.toFixed(1)}x`;
+
+                  return (
                     <span
+                      key={word}
+                      title={`Appears ${count} times. ${score.toFixed(1)}x more frequent here.`}
                       style={{
-                        background: '#e2e8f0',
-                        color: '#475569',
-                        borderRadius: '999px',
-                        padding: '0.05rem 0.35rem',
-                        fontSize: '0.7rem',
-                        fontWeight: 'bold',
+                        background: '#ffffff',
+                        border: '1px solid #cbd5e1',
+                        padding: '0.2rem 0.5rem',
+                        borderRadius: '4px',
+                        fontSize: '0.8rem',
+                        color: '#1e293b',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        cursor: 'help',
                       }}
                     >
-                      {score.toFixed(1)}x
+                      <span>{word}</span>
+                      <span
+                        style={{
+                          background: '#e2e8f0',
+                          color: '#475569',
+                          borderRadius: '999px',
+                          padding: '0.05rem 0.35rem',
+                          fontSize: '0.7rem',
+                          fontWeight: 'bold',
+                        }}
+                      >
+                        {formattedScore}
+                      </span>
                     </span>
-                  </span>
-                ))
+                  );
+                })
               ) : (
                 <span style={{ fontSize: '0.85rem', color: '#64748b' }}>No highly characteristic words found.</span>
               )}
