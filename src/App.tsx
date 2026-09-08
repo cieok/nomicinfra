@@ -211,17 +211,16 @@ export function App() {
       }
     });
 
-    const isOrdinal = (word: string) => /^\d+(st|nd|rd|th)$/i.test(word);
-
     // Find words in active set that don't exist in others and are not ignored
     const uniqueWords: string[] = [];
     currentMetrics.wordSet.forEach((word) => {
+      const containsDigit = /\d/.test(word);
+
       if (
         word.length > 1 &&
-        !isOrdinal(word) &&
+        !containsDigit &&
         !otherWordsSet.has(word) &&
-        !ignoreSet.has(word) &&
-        isNaN(Number(word))
+        !ignoreSet.has(word)
       ) {
         uniqueWords.push(word);
       }
