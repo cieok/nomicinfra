@@ -44,16 +44,8 @@ const BANNED_AKA_WORDS = new Set([
   'votable',
   'post',
   'switch',
-  'page',
-  'wikitext',
-  'http',
-  'https',
-  'action',
-  'parse',
-  'format',
-  'index',
-  'title',
-  'nomic',
+  'periods',
+  'moderator',
 ]);
 
 interface MetricData {
