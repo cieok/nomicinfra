@@ -93,11 +93,10 @@ function formatSizeComparison(currentWords: number, targetWords: number): string
 }
 
 /**
- * Robust check to see if two words share a common root stem (e.g. "office" & "officer", "decide" & "decision")
+ * Robust check to see if two words share a common root stem
  */
 function shareCommonStem(w1: string, w2: string): boolean {
   const minLength = Math.min(w1.length, w2.length);
-  // Compare up to the first 4 characters for root similarity
   const prefixLength = Math.min(4, minLength);
   
   if (w1.substring(0, prefixLength) === w2.substring(0, prefixLength)) {
@@ -107,31 +106,23 @@ function shareCommonStem(w1: string, w2: string): boolean {
 }
 
 /**
- * Selects top characteristic words guaranteed to exclude banned words and duplicate word roots.
+ * Selects top distinct words guaranteed to exclude banned words and duplicate word roots.
  */
-function getDistinctCharacteristicWords(
-  characteristicWords: { word: string; score: number; count: number }[],
+function getDistinctTopWords(
+  topWordsList: { word: string; score: number; count: number }[],
   baseName: string,
   limit: number = 4
 ): string[] {
   const result: string[] = [];
   const basePrefix = baseName.toLowerCase().replace(/nomic/g, '').trim();
 
-  for (const item of characteristicWords) {
+  for (const item of topWordsList) {
     if (result.length >= limit) break;
     const lowerWord = item.word.toLowerCase();
 
-    // 1. Strict Blacklist Check
-    if (BANNED_AKA_WORDS.has(lowerWord)) {
-      continue;
-    }
+    if (BANNED_AKA_WORDS.has(lowerWord)) continue;
+    if (basePrefix && shareCommonStem(lowerWord, basePrefix)) continue;
 
-    // 2. Base Name Similarity Check
-    if (basePrefix && shareCommonStem(lowerWord, basePrefix)) {
-      continue;
-    }
-
-    // 3. Previously Selected Word Similarity Check
     const isDuplicateOrStem = result.some((selected) => 
       shareCommonStem(lowerWord, selected.toLowerCase())
     );
@@ -163,6 +154,10 @@ export function App() {
 
   const [activeTabId, setActiveTabId] = useState<string>(RULESETS[0].id);
   const [showRawText, setShowRawText] = useState<boolean>(false);
+  
+  // State toggles for hiding explanations behind question marks
+  const [showTopWordsHelp, setShowTopWordsHelp] = useState<boolean>(false);
+  const [showUniqueWordsHelp, setShowUniqueWordsHelp] = useState<boolean>(false);
 
   const fetchMetrics = async (ruleset: RulesetConfig): Promise<Omit<MetricData, 'loading' | 'error'>> => {
     const res = await fetch(ruleset.fetchUrl);
@@ -271,8 +266,8 @@ export function App() {
     return uniqueList.sort((a, b) => b.count - a.count || a.word.localeCompare(b.word));
   }, [currentRuleset, currentMetrics, dataMap]);
 
-  // Characteristic Words list (Smoothed Relative Frequency)
-  const characteristicWords = useMemo(() => {
+  // Top Words list (Smoothed Relative Frequency)
+  const topWords = useMemo(() => {
     if (!currentMetrics || currentMetrics.loading || currentMetrics.error) return [];
 
     let otherTotalWords = 0;
@@ -317,10 +312,10 @@ export function App() {
     return scoredList.sort((a, b) => b.score - a.score).slice(0, 150);
   }, [currentRuleset, currentMetrics, dataMap]);
 
-  // Derive top 4 distinct characteristic words for AKA titles
+  // Derive top 4 distinct words for AKA titles
   const akaListWords = useMemo(() => {
-    return getDistinctCharacteristicWords(characteristicWords, currentRuleset.name, 4);
-  }, [characteristicWords, currentRuleset.name]);
+    return getDistinctTopWords(topWords, currentRuleset.name, 4);
+  }, [topWords, currentRuleset.name]);
 
   return (
     <div style={{ maxWidth: '1000px', margin: '2rem auto', fontFamily: 'sans-serif', padding: '0 1rem' }}>
@@ -373,7 +368,7 @@ export function App() {
                   aka{' '}
                   {akaListWords
                     .map((word) => `${word.charAt(0).toUpperCase() + word.slice(1)} Nomic`)
-                    .join(' aka ') +' 😉'}
+                    .join(' aka ') + ' 😉'}
                 </p>
               )}
             </div>
@@ -387,17 +382,42 @@ export function App() {
             </div>
           </div>
 
-          {/* Characteristic Words Section */}
+          {/* Top Words Section */}
           <div style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem' }}>
-            <h3 style={{ marginTop: 0 }}>Most Characteristic Words</h3>
-            <p style={{ fontSize: '0.875rem', color: '#64748b', marginTop: '-0.5rem' }}>
-              Words ordered by how disproportionately often they appear in <strong>{currentRuleset.name}</strong> relative to the other rulesets (normalized by total words).
-            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <h3 style={{ margin: 0 }}>Top Words</h3>
+              <button
+                onClick={() => setShowTopWordsHelp(!showTopWordsHelp)}
+                style={{
+                  background: '#e2e8f0',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '20px',
+                  height: '20px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  fontSize: '0.75rem',
+                  fontWeight: 'bold',
+                  color: '#475569',
+                }}
+                title="Click to toggle explanation"
+              >
+                ?
+              </button>
+            </div>
 
-            <div style={{ maxHeight: '250px', overflowY: 'auto', display: 'flex', flexWrap: 'wrap', gap: '0.35rem', padding: '0.5rem', background: '#f1f5f9', borderRadius: '6px' }}>
-              {characteristicWords.length > 0 ? (
-                characteristicWords.map(({ word, score, count }) => {
-                  const formattedScore = score >= 10 ? `${Math.round(score)}x` : `${score.toFixed(1)}x`;
+            {showTopWordsHelp && (
+              <p style={{ fontSize: '0.875rem', color: '#64748b', marginTop: '0.5rem', marginBottom: '1rem' }}>
+                Words ordered by how disproportionately often they appear in <strong>{currentRuleset.name}</strong> ruleset relative to the other rulesets (normalized by total words).
+              </p>
+            )}
+
+            <div style={{ maxHeight: '250px', overflowY: 'auto', display: 'flex', flexWrap: 'wrap', gap: '0.35rem', padding: '0.5rem', background: '#f1f5f9', borderRadius: '6px', marginTop: '1rem' }}>
+              {topWords.length > 0 ? (
+                topWords.map(({ word, score, count }) => {
+                  const formattedScore = score >= 10 ? `${Math.round(score)}` : `${score.toFixed(1)}`;
 
                   return (
                     <span
@@ -433,7 +453,7 @@ export function App() {
                   );
                 })
               ) : (
-                <span style={{ fontSize: '0.85rem', color: '#64748b' }}>No highly characteristic words found.</span>
+                <span style={{ fontSize: '0.85rem', color: '#64748b' }}>No top words found.</span>
               )}
             </div>
           </div>
@@ -489,12 +509,37 @@ export function App() {
 
           {/* Unique Words Section */}
           <div style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem' }}>
-            <h3 style={{ marginTop: 0 }}>Unique Words in Ruleset</h3>
-            <p style={{ fontSize: '0.875rem', color: '#64748b', marginTop: '-0.5rem' }}>
-              Words that appear in <strong>{currentRuleset.name}</strong> ruleset but do not appear in any other active ruleset, ordered by occurrences.
-            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <h3 style={{ margin: 0 }}>Unique Words in Ruleset</h3>
+              <button
+                onClick={() => setShowUniqueWordsHelp(!showUniqueWordsHelp)}
+                style={{
+                  background: '#e2e8f0',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '20px',
+                  height: '20px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  fontSize: '0.75rem',
+                  fontWeight: 'bold',
+                  color: '#475569',
+                }}
+                title="Click to toggle explanation"
+              >
+                ?
+              </button>
+            </div>
 
-            <div style={{ maxHeight: '250px', overflowY: 'auto', display: 'flex', flexWrap: 'wrap', gap: '0.35rem', padding: '0.5rem', background: '#f1f5f9', borderRadius: '6px' }}>
+            {showUniqueWordsHelp && (
+              <p style={{ fontSize: '0.875rem', color: '#64748b', marginTop: '0.5rem', marginBottom: '1rem' }}>
+                Words that appear in <strong>{currentRuleset.name}</strong> ruleset but do not appear in any other active ruleset, ordered by occurrences.
+              </p>
+            )}
+
+            <div style={{ maxHeight: '250px', overflowY: 'auto', display: 'flex', flexWrap: 'wrap', gap: '0.35rem', padding: '0.5rem', background: '#f1f5f9', borderRadius: '6px', marginTop: '1rem' }}>
               {uniqueWordsWithCounts.length > 0 ? (
                 uniqueWordsWithCounts.map(({ word, count }) => (
                   <span
