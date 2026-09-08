@@ -35,11 +35,6 @@ const RULESETS: RulesetConfig[] = [
   },
 ];
 
-// Editable Ignore List for words that appear due to formatting artifacts/APIs
-const DEFAULT_IGNORE_LIST = [
-  'div',
-];
-
 interface MetricData {
   words: number;
   characters: number;
@@ -96,18 +91,6 @@ export function App() {
 
   const [activeTabId, setActiveTabId] = useState<string>(RULESETS[0].id);
   const [showRawText, setShowRawText] = useState<boolean>(false);
-  const [ignoreInput, setIgnoreInput] = useState<string>(DEFAULT_IGNORE_LIST.join(', '));
-
-  // Compute set of ignored words
-  const ignoreSet = useMemo(() => {
-    return new Set(
-      ignoreInput
-        .toLowerCase()
-        .split(',')
-        .map((w) => w.trim())
-        .filter(Boolean)
-    );
-  }, [ignoreInput]);
 
   const fetchMetrics = async (ruleset: RulesetConfig): Promise<Omit<MetricData, 'loading' | 'error'>> => {
     const res = await fetch(ruleset.fetchUrl);
@@ -198,7 +181,7 @@ export function App() {
     });
   }, [currentRuleset, currentMetrics, dataMap]);
 
-  // Compute rare words unique to the active ruleset
+  // Compute words unique to the active ruleset
   const rareWords = useMemo(() => {
     if (!currentMetrics || currentMetrics.loading || currentMetrics.error) return [];
 
@@ -210,7 +193,7 @@ export function App() {
       }
     });
 
-    // Find words in active set that don't exist in others and are not ignored
+    // Find words in active set that don't exist in others
     const uniqueWords: string[] = [];
     currentMetrics.wordSet.forEach((word) => {
       const containsDigit = /\d/.test(word);
@@ -220,15 +203,14 @@ export function App() {
         word.length > 1 &&
         !containsDigit &&
         !isHttp &&
-        !otherWordsSet.has(word) &&
-        !ignoreSet.has(word)
+        !otherWordsSet.has(word)
       ) {
         uniqueWords.push(word);
       }
     });
 
     return uniqueWords.sort();
-  }, [currentRuleset, currentMetrics, dataMap, ignoreSet]);
+  }, [currentRuleset, currentMetrics, dataMap]);
 
   return (
     <div style={{ maxWidth: '1000px', margin: '2rem auto', fontFamily: 'sans-serif', padding: '0 1rem' }}>
@@ -346,27 +328,6 @@ export function App() {
             <p style={{ fontSize: '0.875rem', color: '#64748b', marginTop: '-0.5rem' }}>
               Words that appear in <strong>{currentRuleset.name}</strong> but do not appear in any other active ruleset.
             </p>
-
-            {/* Editable Ignore List Control */}
-            <div style={{ marginBottom: '1rem', background: '#f8fafc', padding: '0.75rem', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.25rem', color: '#334155' }}>
-                Ignore List (comma separated):
-              </label>
-              <input
-                type="text"
-                value={ignoreInput}
-                onChange={(e) => setIgnoreInput(e.target.value)}
-                placeholder="div, span, ..."
-                style={{
-                  width: '100%',
-                  padding: '0.5rem',
-                  fontSize: '0.85rem',
-                  border: '1px solid #cbd5e1',
-                  borderRadius: '4px',
-                  boxSizing: 'border-box',
-                }}
-              />
-            </div>
 
             {/* Display Words */}
             <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexWrap: 'wrap', gap: '0.35rem', padding: '0.5rem', background: '#f1f5f9', borderRadius: '6px' }}>
