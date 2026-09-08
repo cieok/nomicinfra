@@ -111,7 +111,6 @@ export function App() {
       .split(/\s+/)
       .filter(Boolean);
 
-    // Track term frequency across the ruleset
     const wordCounts = new Map<string, number>();
     tokens.forEach((token) => {
       wordCounts.set(token, (wordCounts.get(token) || 0) + 1);
@@ -147,7 +146,6 @@ export function App() {
   const currentRuleset = RULESETS.find((r) => r.id === activeTabId) || RULESETS[0];
   const currentMetrics = dataMap[currentRuleset.id];
 
-  // Compare active Nomic against others
   const comparisons = useMemo(() => {
     if (!currentMetrics || currentMetrics.loading || currentMetrics.error) return [];
 
@@ -174,11 +172,9 @@ export function App() {
     });
   }, [currentRuleset, currentMetrics, dataMap]);
 
-  // Compute unique words in the active ruleset sorted by frequency
   const uniqueWordsWithCounts = useMemo(() => {
     if (!currentMetrics || currentMetrics.loading || currentMetrics.error) return [];
 
-    // Union of words in all other loaded rulesets
     const otherWordsSet = new Set<string>();
     RULESETS.forEach((r) => {
       if (r.id !== currentRuleset.id && dataMap[r.id] && !dataMap[r.id].loading) {
@@ -186,7 +182,6 @@ export function App() {
       }
     });
 
-    // Find words in active set that don't exist in others
     const uniqueList: { word: string; count: number }[] = [];
     currentMetrics.wordSet.forEach((word) => {
       const containsDigit = /\d/.test(word);
@@ -205,7 +200,6 @@ export function App() {
       }
     });
 
-    // Sort descending by frequency, falling back to alphabetical for ties
     return uniqueList.sort((a, b) => b.count - a.count || a.word.localeCompare(b.word));
   }, [currentRuleset, currentMetrics, dataMap]);
 
@@ -262,64 +256,13 @@ export function App() {
             </div>
           </div>
 
-          {/* Core Metrics Totals */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-            <div style={{ background: '#f8fafc', padding: '1rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
-              <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Ruleset size</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{currentMetrics.words.toLocaleString()} words</div>
-            </div>
-            <div style={{ background: '#f8fafc', padding: '1rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
-              <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Unique Words</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2563eb' }}>
-                {uniqueWordsWithCounts.length.toLocaleString()}
-              </div>
-            </div>
-          </div>
-
-          {/* Similarity Analysis Section */}
+          {/* Unique Words Section (Placed above primary totals) */}
           <div style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem' }}>
-            <h3 style={{ marginTop: 0 }}>Similarity to Other Nomics</h3>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              {comparisons.map(({ ruleset, score, sizeText, error }) => (
-                <div key={ruleset.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.95rem' }}>
-                    <span style={{ fontWeight: 'bold' }}>{ruleset.name}</span>
-                    <span>{score !== null ? `${score.toFixed(1)}% match` : error}</span>
-                  </div>
-
-                  {/* Percentage Bar */}
-                  {score !== null && (
-                    <div style={{ height: '10px', background: '#e2e8f0', borderRadius: '5px', overflow: 'hidden' }}>
-                      <div
-                        style={{
-                          height: '100%',
-                          width: `${Math.min(100, Math.max(0, score))}%`,
-                          background: '#2563eb',
-                          borderRadius: '5px',
-                        }}
-                      />
-                    </div>
-                  )}
-
-                  {score !== null && sizeText !== null && (
-                    <div style={{ textAlign: 'left', fontSize: '0.85rem', color: '#475569' }}>
-                      Size: {sizeText}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Unique Words Section */}
-          <div style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem' }}>
-            <h3 style={{ marginTop: 0 }}>Unique Words</h3>
+            <h3 style={{ marginTop: 0 }}>Unique Words in Ruleset</h3>
             <p style={{ fontSize: '0.875rem', color: '#64748b', marginTop: '-0.5rem' }}>
-              Words that appear in <strong>{currentRuleset.name}</strong> but do not appear in any other active ruleset, ordered by occurrences.
+              Words that appear in <strong>{currentRuleset.name}</strong> ruleset but do not appear in any other active ruleset, ordered by occurrences.
             </p>
 
-            {/* Display Words with Count Badges */}
             <div style={{ maxHeight: '250px', overflowY: 'auto', display: 'flex', flexWrap: 'wrap', gap: '0.35rem', padding: '0.5rem', background: '#f1f5f9', borderRadius: '6px' }}>
               {uniqueWordsWithCounts.length > 0 ? (
                 uniqueWordsWithCounts.map(({ word, count }) => (
@@ -355,6 +298,55 @@ export function App() {
               ) : (
                 <span style={{ fontSize: '0.85rem', color: '#64748b' }}>No unique words found.</span>
               )}
+            </div>
+          </div>
+
+          {/* Core Metrics Totals */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+            <div style={{ background: '#f8fafc', padding: '1rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
+              <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Ruleset size</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{currentMetrics.words.toLocaleString()} words</div>
+            </div>
+            <div style={{ background: '#f8fafc', padding: '1rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
+              <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Unique Words</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2563eb' }}>
+                {uniqueWordsWithCounts.length.toLocaleString()}
+              </div>
+            </div>
+          </div>
+
+          {/* Similarity Analysis Section */}
+          <div style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem' }}>
+            <h3 style={{ marginTop: 0 }}>Similarity to Other Nomics</h3>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              {comparisons.map(({ ruleset, score, sizeText, error }) => (
+                <div key={ruleset.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.95rem' }}>
+                    <span style={{ fontWeight: 'bold' }}>{ruleset.name}</span>
+                    <span>{score !== null ? `${score.toFixed(1)}% match` : error}</span>
+                  </div>
+
+                  {score !== null && (
+                    <div style={{ height: '10px', background: '#e2e8f0', borderRadius: '5px', overflow: 'hidden' }}>
+                      <div
+                        style={{
+                          height: '100%',
+                          width: `${Math.min(100, Math.max(0, score))}%`,
+                          background: '#2563eb',
+                          borderRadius: '5px',
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {score !== null && sizeText !== null && (
+                    <div style={{ textAlign: 'left', fontSize: '0.85rem', color: '#475569' }}>
+                      Size: {sizeText}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
 
