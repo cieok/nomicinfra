@@ -43,7 +43,7 @@ const BANNED_AKA_WORDS = new Set([
   'server',
   'votable',
   'post',
-  'section',
+  'switch',
   'page',
   'wikitext',
   'http',
