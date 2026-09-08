@@ -172,14 +172,45 @@ export function App() {
     });
   }, [currentRuleset, currentMetrics, dataMap]);
 
-  // Smoothed Relative Frequency Ratio
+  // Original Unique Words list
+  const uniqueWordsWithCounts = useMemo(() => {
+    if (!currentMetrics || currentMetrics.loading || currentMetrics.error) return [];
+
+    const otherWordsSet = new Set<string>();
+    RULESETS.forEach((r) => {
+      if (r.id !== currentRuleset.id && dataMap[r.id] && !dataMap[r.id].loading) {
+        dataMap[r.id].wordSet.forEach((w) => otherWordsSet.add(w));
+      }
+    });
+
+    const uniqueList: { word: string; count: number }[] = [];
+    currentMetrics.wordSet.forEach((word) => {
+      const containsDigit = /\d/.test(word);
+      const isHttp = word.startsWith('http');
+
+      if (
+        word.length > 1 &&
+        !containsDigit &&
+        !isHttp &&
+        !otherWordsSet.has(word)
+      ) {
+        uniqueList.push({
+          word,
+          count: currentMetrics.wordCounts.get(word) || 1,
+        });
+      }
+    });
+
+    return uniqueList.sort((a, b) => b.count - a.count || a.word.localeCompare(b.word));
+  }, [currentRuleset, currentMetrics, dataMap]);
+
+  // New Characteristic Words list (Smoothed Relative Frequency)
   const characteristicWords = useMemo(() => {
     if (!currentMetrics || currentMetrics.loading || currentMetrics.error) return [];
 
     let otherTotalWords = 0;
     const otherWordCounts = new Map<string, number>();
 
-    // Aggregate counts and sizes for all OTHER rulesets combined
     RULESETS.forEach((r) => {
       if (r.id !== currentRuleset.id && dataMap[r.id] && !dataMap[r.id].loading) {
         otherTotalWords += dataMap[r.id].words;
@@ -198,19 +229,14 @@ export function App() {
       const isHttp = word.startsWith('http');
       const countInCurrent = currentMetrics.wordCounts.get(word) || 0;
 
-      // Filter out short noise, numbers, and URLs.
-      // We also require the word to appear at least 2 times to filter out rare typos.
       if (word.length > 2 && !containsDigit && !isHttp && countInCurrent >= 2) {
         const countInOthers = otherWordCounts.get(word) || 0;
 
-        // Laplace Smoothed Relative Frequency
         const frequencyInCurrent = (countInCurrent + 1) / (currentMetrics.words + 1);
         const frequencyInOthers = (countInOthers + 1) / (otherTotalWords + 1);
         
-        // Ratio > 1 means it is more characteristic to the current ruleset
         const score = frequencyInCurrent / frequencyInOthers;
 
-        // Only include words that are at least 1.5x more characteristic
         if (score >= 1.5) {
           scoredList.push({
             word,
@@ -221,7 +247,6 @@ export function App() {
       }
     });
 
-    // Sort by characteristic score descending, limit to top 150
     return scoredList.sort((a, b) => b.score - a.score).slice(0, 150);
   }, [currentRuleset, currentMetrics, dataMap]);
 
@@ -278,14 +303,59 @@ export function App() {
             </div>
           </div>
 
+          {/* Unique Words Section */}
+          <div style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '1.5rem', borderRadius: '8px', marginBottom: '1.5rem' }}>
+            <h3 style={{ marginTop: 0 }}>Unique Words in Ruleset</h3>
+            <p style={{ fontSize: '0.875rem', color: '#64748b', marginTop: '-0.5rem' }}>
+              Words that appear in <strong>{currentRuleset.name}</strong> ruleset but do not appear in any other active ruleset, ordered by occurrences.
+            </p>
+
+            <div style={{ maxHeight: '250px', overflowY: 'auto', display: 'flex', flexWrap: 'wrap', gap: '0.35rem', padding: '0.5rem', background: '#f1f5f9', borderRadius: '6px' }}>
+              {uniqueWordsWithCounts.length > 0 ? (
+                uniqueWordsWithCounts.map(({ word, count }) => (
+                  <span
+                    key={word}
+                    style={{
+                      background: '#ffffff',
+                      border: '1px solid #cbd5e1',
+                      padding: '0.2rem 0.5rem',
+                      borderRadius: '4px',
+                      fontSize: '0.8rem',
+                      color: '#1e293b',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.35rem',
+                    }}
+                  >
+                    <span>{word}</span>
+                    <span
+                      style={{
+                        background: '#e2e8f0',
+                        color: '#475569',
+                        borderRadius: '999px',
+                        padding: '0.05rem 0.35rem',
+                        fontSize: '0.7rem',
+                        fontWeight: 'bold',
+                      }}
+                    >
+                      {count}
+                    </span>
+                  </span>
+                ))
+              ) : (
+                <span style={{ fontSize: '0.85rem', color: '#64748b' }}>No unique words found.</span>
+              )}
+            </div>
+          </div>
+
           {/* Characteristic Words Section */}
           <div style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem' }}>
             <h3 style={{ marginTop: 0 }}>Most Characteristic Words</h3>
             <p style={{ fontSize: '0.875rem', color: '#64748b', marginTop: '-0.5rem' }}>
-              Words ordered by how disproportionately often they appear in <strong>{currentRuleset.name}</strong> relative to the other rulesets (normalized by size).
+              Words ordered by how disproportionately often they appear in <strong>{currentRuleset.name}</strong> relative to the other rulesets (normalized by total words).
             </p>
 
-            <div style={{ maxHeight: '300px', overflowY: 'auto', display: 'flex', flexWrap: 'wrap', gap: '0.35rem', padding: '0.5rem', background: '#f1f5f9', borderRadius: '6px' }}>
+            <div style={{ maxHeight: '250px', overflowY: 'auto', display: 'flex', flexWrap: 'wrap', gap: '0.35rem', padding: '0.5rem', background: '#f1f5f9', borderRadius: '6px' }}>
               {characteristicWords.length > 0 ? (
                 characteristicWords.map(({ word, score, count }) => (
                   <span
@@ -301,7 +371,7 @@ export function App() {
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '0.35rem',
-                      cursor: 'help'
+                      cursor: 'help',
                     }}
                   >
                     <span>{word}</span>
@@ -332,9 +402,9 @@ export function App() {
               <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{currentMetrics.words.toLocaleString()} words</div>
             </div>
             <div style={{ background: '#f8fafc', padding: '1rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
-              <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Unique Vocabulary</div>
+              <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Unique Words</div>
               <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2563eb' }}>
-                {currentMetrics.wordSet.size.toLocaleString()} terms
+                {uniqueWordsWithCounts.length.toLocaleString()}
               </div>
             </div>
           </div>
