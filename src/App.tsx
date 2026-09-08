@@ -172,35 +172,57 @@ export function App() {
     });
   }, [currentRuleset, currentMetrics, dataMap]);
 
-  const uniqueWordsWithCounts = useMemo(() => {
+  // Smoothed Relative Frequency Ratio
+  const characteristicWords = useMemo(() => {
     if (!currentMetrics || currentMetrics.loading || currentMetrics.error) return [];
 
-    const otherWordsSet = new Set<string>();
+    let otherTotalWords = 0;
+    const otherWordCounts = new Map<string, number>();
+
+    // Aggregate counts and sizes for all OTHER rulesets combined
     RULESETS.forEach((r) => {
       if (r.id !== currentRuleset.id && dataMap[r.id] && !dataMap[r.id].loading) {
-        dataMap[r.id].wordSet.forEach((w) => otherWordsSet.add(w));
-      }
-    });
-
-    const uniqueList: { word: string; count: number }[] = [];
-    currentMetrics.wordSet.forEach((word) => {
-      const containsDigit = /\d/.test(word);
-      const isHttp = word.startsWith('http');
-
-      if (
-        word.length > 1 &&
-        !containsDigit &&
-        !isHttp &&
-        !otherWordsSet.has(word)
-      ) {
-        uniqueList.push({
-          word,
-          count: currentMetrics.wordCounts.get(word) || 1,
+        otherTotalWords += dataMap[r.id].words;
+        dataMap[r.id].wordCounts.forEach((count, word) => {
+          otherWordCounts.set(word, (otherWordCounts.get(word) || 0) + count);
         });
       }
     });
 
-    return uniqueList.sort((a, b) => b.count - a.count || a.word.localeCompare(b.word));
+    if (otherTotalWords === 0) return [];
+
+    const scoredList: { word: string; score: number; count: number }[] = [];
+
+    currentMetrics.wordSet.forEach((word) => {
+      const containsDigit = /\d/.test(word);
+      const isHttp = word.startsWith('http');
+      const countInCurrent = currentMetrics.wordCounts.get(word) || 0;
+
+      // Filter out short noise, numbers, and URLs.
+      // We also require the word to appear at least 2 times to filter out rare typos.
+      if (word.length > 2 && !containsDigit && !isHttp && countInCurrent >= 2) {
+        const countInOthers = otherWordCounts.get(word) || 0;
+
+        // Laplace Smoothed Relative Frequency
+        const frequencyInCurrent = (countInCurrent + 1) / (currentMetrics.words + 1);
+        const frequencyInOthers = (countInOthers + 1) / (otherTotalWords + 1);
+        
+        // Ratio > 1 means it is more characteristic to the current ruleset
+        const score = frequencyInCurrent / frequencyInOthers;
+
+        // Only include words that are at least 1.5x more characteristic
+        if (score >= 1.5) {
+          scoredList.push({
+            word,
+            count: countInCurrent,
+            score,
+          });
+        }
+      }
+    });
+
+    // Sort by characteristic score descending, limit to top 150
+    return scoredList.sort((a, b) => b.score - a.score).slice(0, 150);
   }, [currentRuleset, currentMetrics, dataMap]);
 
   return (
@@ -256,18 +278,19 @@ export function App() {
             </div>
           </div>
 
-          {/* Unique Words Section (Placed above primary totals) */}
+          {/* Characteristic Words Section */}
           <div style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem' }}>
-            <h3 style={{ marginTop: 0 }}>Unique Words in Ruleset</h3>
+            <h3 style={{ marginTop: 0 }}>Most Characteristic Words</h3>
             <p style={{ fontSize: '0.875rem', color: '#64748b', marginTop: '-0.5rem' }}>
-              Words that appear in <strong>{currentRuleset.name}</strong> ruleset but do not appear in any other active ruleset, ordered by occurrences.
+              Words ordered by how disproportionately often they appear in <strong>{currentRuleset.name}</strong> relative to the other rulesets (normalized by size).
             </p>
 
-            <div style={{ maxHeight: '250px', overflowY: 'auto', display: 'flex', flexWrap: 'wrap', gap: '0.35rem', padding: '0.5rem', background: '#f1f5f9', borderRadius: '6px' }}>
-              {uniqueWordsWithCounts.length > 0 ? (
-                uniqueWordsWithCounts.map(({ word, count }) => (
+            <div style={{ maxHeight: '300px', overflowY: 'auto', display: 'flex', flexWrap: 'wrap', gap: '0.35rem', padding: '0.5rem', background: '#f1f5f9', borderRadius: '6px' }}>
+              {characteristicWords.length > 0 ? (
+                characteristicWords.map(({ word, score, count }) => (
                   <span
                     key={word}
+                    title={`Appears ${count} times. ${score.toFixed(1)}x more frequent here.`}
                     style={{
                       background: '#ffffff',
                       border: '1px solid #cbd5e1',
@@ -278,6 +301,7 @@ export function App() {
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '0.35rem',
+                      cursor: 'help'
                     }}
                   >
                     <span>{word}</span>
@@ -291,12 +315,12 @@ export function App() {
                         fontWeight: 'bold',
                       }}
                     >
-                      {count}
+                      {score > 99 ? '99+x' : `${score.toFixed(1)}x`}
                     </span>
                   </span>
                 ))
               ) : (
-                <span style={{ fontSize: '0.85rem', color: '#64748b' }}>No unique words found.</span>
+                <span style={{ fontSize: '0.85rem', color: '#64748b' }}>No highly characteristic words found.</span>
               )}
             </div>
           </div>
@@ -308,9 +332,9 @@ export function App() {
               <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{currentMetrics.words.toLocaleString()} words</div>
             </div>
             <div style={{ background: '#f8fafc', padding: '1rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
-              <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Unique Words</div>
+              <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Unique Vocabulary</div>
               <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2563eb' }}>
-                {uniqueWordsWithCounts.length.toLocaleString()}
+                {currentMetrics.wordSet.size.toLocaleString()} terms
               </div>
             </div>
           </div>
