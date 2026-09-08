@@ -172,7 +172,7 @@ export function App() {
     });
   }, [currentRuleset, currentMetrics, dataMap]);
 
-  // Original Unique Words list
+  // Unique Words list
   const uniqueWordsWithCounts = useMemo(() => {
     if (!currentMetrics || currentMetrics.loading || currentMetrics.error) return [];
 
@@ -204,7 +204,7 @@ export function App() {
     return uniqueList.sort((a, b) => b.count - a.count || a.word.localeCompare(b.word));
   }, [currentRuleset, currentMetrics, dataMap]);
 
-  // New Characteristic Words list (Smoothed Relative Frequency)
+  // Characteristic Words list (Smoothed Relative Frequency)
   const characteristicWords = useMemo(() => {
     if (!currentMetrics || currentMetrics.loading || currentMetrics.error) return [];
 
@@ -303,51 +303,6 @@ export function App() {
             </div>
           </div>
 
-          {/* Unique Words Section */}
-          <div style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '1.5rem', borderRadius: '8px', marginBottom: '1.5rem' }}>
-            <h3 style={{ marginTop: 0 }}>Unique Words in Ruleset</h3>
-            <p style={{ fontSize: '0.875rem', color: '#64748b', marginTop: '-0.5rem' }}>
-              Words that appear in <strong>{currentRuleset.name}</strong> ruleset but do not appear in any other active ruleset, ordered by occurrences.
-            </p>
-
-            <div style={{ maxHeight: '250px', overflowY: 'auto', display: 'flex', flexWrap: 'wrap', gap: '0.35rem', padding: '0.5rem', background: '#f1f5f9', borderRadius: '6px' }}>
-              {uniqueWordsWithCounts.length > 0 ? (
-                uniqueWordsWithCounts.map(({ word, count }) => (
-                  <span
-                    key={word}
-                    style={{
-                      background: '#ffffff',
-                      border: '1px solid #cbd5e1',
-                      padding: '0.2rem 0.5rem',
-                      borderRadius: '4px',
-                      fontSize: '0.8rem',
-                      color: '#1e293b',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.35rem',
-                    }}
-                  >
-                    <span>{word}</span>
-                    <span
-                      style={{
-                        background: '#e2e8f0',
-                        color: '#475569',
-                        borderRadius: '999px',
-                        padding: '0.05rem 0.35rem',
-                        fontSize: '0.7rem',
-                        fontWeight: 'bold',
-                      }}
-                    >
-                      {count}
-                    </span>
-                  </span>
-                ))
-              ) : (
-                <span style={{ fontSize: '0.85rem', color: '#64748b' }}>No unique words found.</span>
-              )}
-            </div>
-          </div>
-
           {/* Characteristic Words Section */}
           <div style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem' }}>
             <h3 style={{ marginTop: 0 }}>Most Characteristic Words</h3>
@@ -402,9 +357,9 @@ export function App() {
               <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{currentMetrics.words.toLocaleString()} words</div>
             </div>
             <div style={{ background: '#f8fafc', padding: '1rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
-              <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Unique Words</div>
+              <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Unique Vocabulary</div>
               <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2563eb' }}>
-                {uniqueWordsWithCounts.length.toLocaleString()}
+                {currentMetrics.wordSet.size.toLocaleString()} terms
               </div>
             </div>
           </div>
@@ -441,6 +396,51 @@ export function App() {
                   )}
                 </div>
               ))}
+            </div>
+          </div>
+
+          {/* Unique Words Section */}
+          <div style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem' }}>
+            <h3 style={{ marginTop: 0 }}>Unique Words in Ruleset</h3>
+            <p style={{ fontSize: '0.875rem', color: '#64748b', marginTop: '-0.5rem' }}>
+              Words that appear in <strong>{currentRuleset.name}</strong> ruleset but do not appear in any other active ruleset, ordered by occurrences.
+            </p>
+
+            <div style={{ maxHeight: '250px', overflowY: 'auto', display: 'flex', flexWrap: 'wrap', gap: '0.35rem', padding: '0.5rem', background: '#f1f5f9', borderRadius: '6px' }}>
+              {uniqueWordsWithCounts.length > 0 ? (
+                uniqueWordsWithCounts.map(({ word, count }) => (
+                  <span
+                    key={word}
+                    style={{
+                      background: '#ffffff',
+                      border: '1px solid #cbd5e1',
+                      padding: '0.2rem 0.5rem',
+                      borderRadius: '4px',
+                      fontSize: '0.8rem',
+                      color: '#1e293b',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.35rem',
+                    }}
+                  >
+                    <span>{word}</span>
+                    <span
+                      style={{
+                        background: '#e2e8f0',
+                        color: '#475569',
+                        borderRadius: '999px',
+                        padding: '0.05rem 0.35rem',
+                        fontSize: '0.7rem',
+                        fontWeight: 'bold',
+                      }}
+                    >
+                      {count}
+                    </span>
+                  </span>
+                ))
+              ) : (
+                <span style={{ fontSize: '0.85rem', color: '#64748b' }}>No unique words found.</span>
+              )}
             </div>
           </div>
 
