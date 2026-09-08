@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import './App.css';
 
 interface RulesetConfig {
   id: string;
@@ -318,11 +319,11 @@ export function App() {
   }, [topWords, currentRuleset.name]);
 
   return (
-    <div style={{ maxWidth: '1000px', margin: '2rem auto', fontFamily: 'sans-serif', padding: '0 1rem' }}>
+    <div className="app-container">
       <h1>Nomic games comparison</h1>
 
       {/* Navigation Tabs */}
-      <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '2px solid #e2e8f0', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+      <div className="nav-tabs">
         {RULESETS.map((ruleset) => {
           const isActive = ruleset.id === activeTabId;
           return (
@@ -332,17 +333,7 @@ export function App() {
                 setActiveTabId(ruleset.id);
                 setShowRawText(false);
               }}
-              style={{
-                padding: '0.75rem 1.25rem',
-                border: 'none',
-                borderBottom: isActive ? '3px solid #2563eb' : '3px solid transparent',
-                background: isActive ? '#eff6ff' : 'transparent',
-                fontWeight: isActive ? 'bold' : 'normal',
-                color: isActive ? '#1d4ed8' : '#64748b',
-                cursor: 'pointer',
-                fontSize: '1rem',
-                borderRadius: '6px 6px 0 0',
-              }}
+              className={`tab-button ${isActive ? 'active' : ''}`}
             >
               {ruleset.name}
             </button>
@@ -354,17 +345,17 @@ export function App() {
       {currentMetrics.loading ? (
         <p>Loading ruleset data...</p>
       ) : currentMetrics.error ? (
-        <p style={{ color: '#dc2626' }}>
+        <p className="error-text">
           Error loading {currentRuleset.name}: {currentMetrics.error}
         </p>
       ) : (
         <div>
           {/* Header Info with AKA Titles */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
+          <div className="header-container">
             <div>
-              <h2 style={{ margin: 0 }}>{currentRuleset.name}</h2>
+              <h2 className="title-primary">{currentRuleset.name}</h2>
               {akaListWords.length > 0 && (
-                <p style={{ color: '#475569', margin: '0.35rem 0 0 0', fontSize: '0.95rem', fontStyle: 'italic' }}>
+                <p className="aka-subtitle">
                   aka{' '}
                   {akaListWords
                     .map((word) => `${word.charAt(0).toUpperCase() + word.slice(1)} Nomic`)
@@ -372,36 +363,23 @@ export function App() {
                 </p>
               )}
             </div>
-            <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem' }}>
-              <a href={currentRuleset.homeUrl} target="_blank" rel="noreferrer" style={{ color: '#2563eb', textDecoration: 'underline' }}>
+            <div className="header-links">
+              <a href={currentRuleset.homeUrl} target="_blank" rel="noreferrer" className="external-link">
                 View Game ↗
               </a>
-              <a href={currentRuleset.linkUrl} target="_blank" rel="noreferrer" style={{ color: '#2563eb', textDecoration: 'underline' }}>
+              <a href={currentRuleset.linkUrl} target="_blank" rel="noreferrer" className="external-link">
                 View Ruleset ↗
               </a>
             </div>
           </div>
 
           {/* Top Words Section */}
-          <div style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <h3 style={{ margin: 0 }}>Top Words</h3>
+          <div className="card">
+            <div className="section-header">
+              <h3>Top Words</h3>
               <button
                 onClick={() => setShowTopWordsHelp(!showTopWordsHelp)}
-                style={{
-                  background: '#e2e8f0',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: '20px',
-                  height: '20px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  fontSize: '0.75rem',
-                  fontWeight: 'bold',
-                  color: '#475569',
-                }}
+                className="help-button"
                 title="Click to toggle explanation"
               >
                 ?
@@ -409,12 +387,12 @@ export function App() {
             </div>
 
             {showTopWordsHelp && (
-              <p style={{ fontSize: '0.875rem', color: '#64748b', marginTop: '0.5rem', marginBottom: '1rem' }}>
+              <p className="help-text">
                 Words ordered by how disproportionately often they appear in <strong>{currentRuleset.name}</strong> ruleset relative to the other rulesets (normalized by total words).
               </p>
             )}
 
-            <div style={{ maxHeight: '155px', overflowY: 'auto', display: 'flex', flexWrap: 'wrap', gap: '0.35rem', padding: '0.5rem', background: '#f1f5f9', borderRadius: '6px', marginTop: '1rem' }}>
+            <div className="words-container top-words-container">
               {topWords.length > 0 ? (
                 topWords.map(({ word, score, count }) => {
                   const formattedScore = score >= 10 ? `${Math.round(score)}` : `${score.toFixed(1)}`;
@@ -423,82 +401,58 @@ export function App() {
                     <span
                       key={word}
                       title={`Appears ${count} times. ${score.toFixed(1)}x more frequent here.`}
-                      style={{
-                        background: '#ffffff',
-                        border: '1px solid #cbd5e1',
-                        padding: '0.2rem 0.5rem',
-                        borderRadius: '4px',
-                        fontSize: '0.8rem',
-                        color: '#1e293b',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.35rem',
-                        cursor: 'help',
-                      }}
+                      className="word-badge help-cursor"
                     >
                       <span>{word}</span>
-                      <span
-                        style={{
-                          background: '#e2e8f0',
-                          color: '#475569',
-                          borderRadius: '999px',
-                          padding: '0.05rem 0.35rem',
-                          fontSize: '0.7rem',
-                          fontWeight: 'bold',
-                        }}
-                      >
+                      <span className="count-pill">
                         {formattedScore}
                       </span>
                     </span>
                   );
                 })
               ) : (
-                <span style={{ fontSize: '0.85rem', color: '#64748b' }}>No top words found.</span>
+                <span className="empty-words-text">No top words found.</span>
               )}
             </div>
           </div>
 
           {/* Core Metrics Totals */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-            <div style={{ background: '#f8fafc', padding: '1rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
-              <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Ruleset size</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{currentMetrics.words.toLocaleString()} words</div>
+          <div className="metrics-grid">
+            <div className="metric-card">
+              <div className="metric-label">Ruleset size</div>
+              <div className="metric-value">{currentMetrics.words.toLocaleString()} words</div>
             </div>
-            <div style={{ background: '#f8fafc', padding: '1rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
-              <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Unique Vocabulary</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2563eb' }}>
+            <div className="metric-card">
+              <div className="metric-label">Unique Vocabulary</div>
+              <div className="metric-value highlight">
                 {currentMetrics.wordSet.size.toLocaleString()} terms
               </div>
             </div>
           </div>
 
           {/* Similarity Analysis Section */}
-          <div style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem' }}>
+          <div className="card">
             <h3 style={{ marginTop: 0 }}>Similarity to Other Nomics</h3>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div className="comparisons-list">
               {comparisons.map(({ ruleset, score, sizeText, error }) => (
-                <div key={ruleset.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.95rem' }}>
-                    <span style={{ fontWeight: 'bold' }}>{ruleset.name}</span>
+                <div key={ruleset.id} className="comparison-item">
+                  <div className="comparison-header">
+                    <span className="comparison-title">{ruleset.name}</span>
                     <span>{score !== null ? `${score.toFixed(1)}% match` : error}</span>
                   </div>
 
                   {score !== null && (
-                    <div style={{ height: '10px', background: '#e2e8f0', borderRadius: '5px', overflow: 'hidden' }}>
+                    <div className="progress-bar-track">
                       <div
-                        style={{
-                          height: '100%',
-                          width: `${Math.min(100, Math.max(0, score))}%`,
-                          background: '#2563eb',
-                          borderRadius: '5px',
-                        }}
+                        className="progress-bar-fill"
+                        style={{ '--progress-width': `${Math.min(100, Math.max(0, score))}%` } as React.CSSProperties}
                       />
                     </div>
                   )}
 
                   {score !== null && sizeText !== null && (
-                    <div style={{ textAlign: 'left', fontSize: '0.85rem', color: '#475569' }}>
+                    <div className="comparison-size">
                       Size: {sizeText}
                     </div>
                   )}
@@ -508,25 +462,12 @@ export function App() {
           </div>
 
           {/* Unique Words Section */}
-          <div style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <h3 style={{ margin: 0 }}>Unique Words in Ruleset</h3>
+          <div className="card">
+            <div className="section-header">
+              <h3>Unique Words in Ruleset</h3>
               <button
                 onClick={() => setShowUniqueWordsHelp(!showUniqueWordsHelp)}
-                style={{
-                  background: '#e2e8f0',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: '20px',
-                  height: '20px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  fontSize: '0.75rem',
-                  fontWeight: 'bold',
-                  color: '#475569',
-                }}
+                className="help-button"
                 title="Click to toggle explanation"
               >
                 ?
@@ -534,45 +475,21 @@ export function App() {
             </div>
 
             {showUniqueWordsHelp && (
-              <p style={{ fontSize: '0.875rem', color: '#64748b', marginTop: '0.5rem', marginBottom: '1rem' }}>
+              <p className="help-text">
                 Words that appear in <strong>{currentRuleset.name}</strong> ruleset but do not appear in any other active ruleset, ordered by occurrences.
               </p>
             )}
 
-            <div style={{ maxHeight: '250px', overflowY: 'auto', display: 'flex', flexWrap: 'wrap', gap: '0.35rem', padding: '0.5rem', background: '#f1f5f9', borderRadius: '6px', marginTop: '1rem' }}>
+            <div className="words-container unique-words-container">
               {uniqueWordsWithCounts.length > 0 ? (
                 uniqueWordsWithCounts.map(({ word, count }) => (
-                  <span
-                    key={word}
-                    style={{
-                      background: '#ffffff',
-                      border: '1px solid #cbd5e1',
-                      padding: '0.2rem 0.5rem',
-                      borderRadius: '4px',
-                      fontSize: '0.8rem',
-                      color: '#1e293b',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.35rem',
-                    }}
-                  >
+                  <span key={word} className="word-badge">
                     <span>{word}</span>
-                    <span
-                      style={{
-                        background: '#e2e8f0',
-                        color: '#475569',
-                        borderRadius: '999px',
-                        padding: '0.05rem 0.35rem',
-                        fontSize: '0.7rem',
-                        fontWeight: 'bold',
-                      }}
-                    >
-                      {count}
-                    </span>
+                    <span className="count-pill">{count}</span>
                   </span>
                 ))
               ) : (
-                <span style={{ fontSize: '0.85rem', color: '#64748b' }}>No unique words found.</span>
+                <span className="empty-words-text">No unique words found.</span>
               )}
             </div>
           </div>
@@ -581,32 +498,13 @@ export function App() {
           <div>
             <button
               onClick={() => setShowRawText(!showRawText)}
-              style={{
-                background: '#f1f5f9',
-                border: '1px solid #cbd5e1',
-                padding: '0.5rem 1rem',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-              }}
+              className="preview-toggle-button"
             >
               📄 {showRawText ? 'Hide' : 'Show'} Ruleset Preview
             </button>
 
             {showRawText && (
-              <pre
-                style={{
-                  marginTop: '1rem',
-                  background: '#f8fafc',
-                  border: '1px solid #e2e8f0',
-                  padding: '1rem',
-                  borderRadius: '6px',
-                  maxHeight: '400px',
-                  overflowY: 'auto',
-                  fontSize: '0.85rem',
-                  whiteSpace: 'pre-wrap',
-                }}
-              >
+              <pre className="raw-text-preview">
                 {currentMetrics.content}
               </pre>
             )}

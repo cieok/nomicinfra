@@ -1,3 +1,261 @@
+/* Container & Headers */
+.app-container {
+  max-width: 1000px;
+  margin: 2rem auto;
+  font-family: sans-serif;
+  padding: 0 1rem;
+}
+
+.title-primary {
+  margin: 0;
+}
+
+.aka-subtitle {
+  color: #475569;
+  margin: 0.35rem 0 0 0;
+  font-size: 0.95rem;
+  font-style: italic;
+}
+
+.error-text {
+  color: #dc2626;
+}
+
+/* Tabs Navigation */
+.nav-tabs {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 2px solid #e2e8f0;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.tab-button {
+  padding: 0.75rem 1.25rem;
+  border: none;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  font-weight: normal;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 1rem;
+  border-radius: 6px 6px 0 0;
+}
+
+.tab-button.active {
+  border-bottom-color: #2563eb;
+  background-color: #eff6ff;
+  font-weight: bold;
+  color: #1d4ed8;
+}
+
+/* Header & Links */
+.header-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+}
+
+.header-links {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.25rem;
+}
+
+.external-link {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+/* Cards & Sections */
+.card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  padding: 1.5rem;
+  borderRadius: 8px;
+  margin-bottom: 2rem;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.section-header h3 {
+  margin: 0;
+}
+
+.help-button {
+  background: #e2e8f0;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: bold;
+  color: #475569;
+}
+
+.help-text {
+  font-size: 0.875rem;
+  color: #64748b;
+  margin-top: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+/* Word Badges & Containers */
+.words-container {
+  overflow-y: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.5rem;
+  background: #f1f5f9;
+  border-radius: 6px;
+  margin-top: 1rem;
+}
+
+.top-words-container {
+  max-height: 155px;
+}
+
+.unique-words-container {
+  max-height: 250px;
+}
+
+.word-badge {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  color: #1e293b;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.word-badge.help-cursor {
+  cursor: help;
+}
+
+.count-pill {
+  background: #e2e8f0;
+  color: #475569;
+  border-radius: 999px;
+  padding: 0.05rem 0.35rem;
+  font-size: 0.7rem;
+  font-weight: bold;
+}
+
+.empty-words-text {
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+/* Metrics Grid */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.metric-card {
+  background: #f8fafc;
+  padding: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+}
+
+.metric-label {
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.metric-value {
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.metric-value.highlight {
+  color: #2563eb;
+}
+
+/* Comparisons */
+.comparisons-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.comparison-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 0.75rem;
+}
+
+.comparison-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.95rem;
+}
+
+.comparison-title {
+  font-weight: bold;
+}
+
+.progress-bar-track {
+  height: 10px;
+  background: #e2e8f0;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  width: var(--progress-width, 0%);
+  background: #2563eb;
+  border-radius: 5px;
+}
+
+.comparison-size {
+  text-align: left;
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+/* Preview Section */
+.preview-toggle-button {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.raw-text-preview {
+  margin-top: 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 1rem;
+  border-radius: 6px;
+  max-height: 400px;
+  overflow-y: auto;
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+}
+
 .counter {
   font-size: 16px;
   padding: 5px 10px;
