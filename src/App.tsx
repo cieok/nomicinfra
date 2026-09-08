@@ -35,6 +35,23 @@ const RULESETS: RulesetConfig[] = [
   },
 ];
 
+// Words to explicitly block from becoming AKA titles (structural/meta words)
+const BANNED_AKA_WORDS = new Set([
+  'Decision',
+  'rules',
+  'ruleset',
+  'section',
+  'page',
+  'wikitext',
+  'http',
+  'https',
+  'action',
+  'parse',
+  'format',
+  'index',
+  'title',
+]);
+
 interface MetricData {
   words: number;
   characters: number;
@@ -47,7 +64,7 @@ interface MetricData {
 
 function calculateJaccardSimilarity(setA: Set<string>, setB: Set<string>): number {
   if (setA.size === 0 || setB.size === 0) return 0;
-  
+
   let intersectionSize = 0;
   setA.forEach((word) => {
     if (setB.has(word)) {
@@ -70,6 +87,47 @@ function formatSizeComparison(currentWords: number, targetWords: number): string
     const ratio = targetWords / currentWords;
     return `${ratio.toFixed(2)} times bigger`;
   }
+}
+
+/**
+  Filters characteristic words to avoid ones similar to the original name or to previously selected words.
+ */
+function getDistinctCharacteristicWords(
+  characteristicWords: { word: string; score: number; count: number }[],
+  baseName: string,
+  limit: number = 4
+): string[] {
+  const result: string[] = [];
+  const basePrefix = baseName.toLowerCase().replace(/nomic/g, '').trim();
+
+  for (const item of characteristicWords) {
+    if (result.length >= limit) break;
+    const lowerWord = item.word.toLowerCase();
+
+    if (BANNED_AKA_WORDS.has(lowerWord)) continue;
+
+    // Skip words that match or start with the base name prefix
+    const isTooSimilarToBase = basePrefix && (lowerWord.startsWith(basePrefix) || basePrefix.startsWith(lowerWord));
+
+    // Skip words sharing stems/prefixes with previously selected AKA words
+    const isDuplicateOrStem = result.some((selected) => {
+      const lowerSelected = selected.toLowerCase();
+      const minLength = Math.min(lowerSelected.length, lowerWord.length);
+      const prefixLength = Math.min(3, minLength);
+
+      return (
+        lowerSelected.substring(0, prefixLength) === lowerWord.substring(0, prefixLength) ||
+        lowerWord.includes(lowerSelected) ||
+        lowerSelected.includes(lowerWord)
+      );
+    });
+
+    if (!isTooSimilarToBase && !isDuplicateOrStem) {
+      result.push(item.word);
+    }
+  }
+
+  return result;
 }
 
 export function App() {
@@ -152,22 +210,22 @@ export function App() {
     return RULESETS.filter((r) => r.id !== currentRuleset.id).map((other) => {
       const otherMetrics = dataMap[other.id];
       if (!otherMetrics || otherMetrics.loading || otherMetrics.error) {
-        return { 
-          ruleset: other, 
-          score: null, 
+        return {
+          ruleset: other,
+          score: null,
           sizeText: null,
-          error: otherMetrics?.error || 'Loading...' 
+          error: otherMetrics?.error || 'Loading...',
         };
       }
 
       const score = calculateJaccardSimilarity(currentMetrics.wordSet, otherMetrics.wordSet);
       const sizeText = formatSizeComparison(currentMetrics.words, otherMetrics.words);
 
-      return { 
-        ruleset: other, 
-        score, 
+      return {
+        ruleset: other,
+        score,
         sizeText,
-        error: null 
+        error: null,
       };
     });
   }, [currentRuleset, currentMetrics, dataMap]);
@@ -188,12 +246,7 @@ export function App() {
       const containsDigit = /\d/.test(word);
       const isHttp = word.startsWith('http');
 
-      if (
-        word.length > 1 &&
-        !containsDigit &&
-        !isHttp &&
-        !otherWordsSet.has(word)
-      ) {
+      if (word.length > 1 && !containsDigit && !isHttp && !otherWordsSet.has(word)) {
         uniqueList.push({
           word,
           count: currentMetrics.wordCounts.get(word) || 1,
@@ -234,7 +287,7 @@ export function App() {
 
         const frequencyInCurrent = (countInCurrent + 1) / (currentMetrics.words + 1);
         const frequencyInOthers = (countInOthers + 1) / (otherTotalWords + 1);
-        
+
         const score = frequencyInCurrent / frequencyInOthers;
 
         if (score >= 1.5) {
@@ -249,6 +302,11 @@ export function App() {
 
     return scoredList.sort((a, b) => b.score - a.score).slice(0, 150);
   }, [currentRuleset, currentMetrics, dataMap]);
+
+  // Derive top 4 distinct characteristic words for AKA titles
+  const akaListWords = useMemo(() => {
+    return getDistinctCharacteristicWords(characteristicWords, currentRuleset.name, 4);
+  }, [characteristicWords, currentRuleset.name]);
 
   return (
     <div style={{ maxWidth: '1000px', margin: '2rem auto', fontFamily: 'sans-serif', padding: '0 1rem' }}>
@@ -287,13 +345,25 @@ export function App() {
       {currentMetrics.loading ? (
         <p>Loading ruleset data...</p>
       ) : currentMetrics.error ? (
-        <p style={{ color: '#dc2626' }}>Error loading {currentRuleset.name}: {currentMetrics.error}</p>
+        <p style={{ color: '#dc2626' }}>
+          Error loading {currentRuleset.name}: {currentMetrics.error}
+        </p>
       ) : (
         <div>
-          {/* Header Info */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <h2>{currentRuleset.name}</h2>
-            <div style={{ display: 'flex', gap: '1rem' }}>
+          {/* Header Info with AKA Titles */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
+            <div>
+              <h2 style={{ margin: 0 }}>{currentRuleset.name}</h2>
+              {akaListWords.length > 0 && (
+                <p style={{ color: '#475569', margin: '0.35rem 0 0 0', fontSize: '0.95rem', fontStyle: 'italic' }}>
+                  aka{' '}
+                  {akaListWords
+                    .map((word) => `${word.charAt(0).toUpperCase() + word.slice(1)} Nomic`)
+                    .join(' aka ')}
+                </p>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem' }}>
               <a href={currentRuleset.homeUrl} target="_blank" rel="noreferrer" style={{ color: '#2563eb', textDecoration: 'underline' }}>
                 View Game ↗
               </a>
