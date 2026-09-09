@@ -555,7 +555,7 @@ export function App() {
       <div className="card" style={{ marginTop: '24px' }}>
         <div className="header-links" style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '16px' }}>
           <a href="https://nomic.fandom.com/wiki/Leaderboards" target="_blank" rel="noreferrer" className="external-link">
-            More games and non-automatic comparisons ↗
+            More games, more comparisons and wiki ↗
           </a>
           <a href="https://kiako.me/nomic/" target="_blank" rel="noreferrer" className="external-link">
             Introduction to Nomic ↗
