@@ -10,32 +10,71 @@ import {
   getDistinctTopWords,
   fetchMetrics,
 } from './utils/rulesetAnalysis';
+import { PRECOMPUTED_RULESETS } from './precomputedRulesets';
+
+// Convert precomputed items into RulesetConfig and MetricData formats
+function buildPrecomputedState() {
+  const precomputedRulesets: RulesetConfig[] = PRECOMPUTED_RULESETS.map((p) => ({
+    id: p.id,
+    name: p.name,
+    fetchUrl: './', // Dummy path since content is pre-loaded
+    linkUrl: p.linkUrl,
+    homeUrl: p.homeUrl,
+  }));
+
+  const precomputedDataMap: Record<string, MetricData> = {};
+  PRECOMPUTED_RULESETS.forEach((p) => {
+    precomputedDataMap[p.id] = {
+      words: p.metrics.words,
+      characters: p.metrics.characters,
+      content: p.content,
+      wordSet: new Set(p.metrics.wordSet),
+      wordCounts: new Map(Object.entries(p.metrics.wordCounts)),
+      loading: false,
+      error: null,
+    };
+  });
+
+  return { precomputedRulesets, precomputedDataMap };
+}
 
 export function App() {
-  const [rulesets, setRulesets] = useState<RulesetConfig[]>(INITIAL_RULESETS);
+  const [rulesets, setRulesets] = useState<RulesetConfig[]>(() => {
+    const { precomputedRulesets } = buildPrecomputedState();
+    // Keep initial rulesets first, and place precomputed rulesets at the end
+    const precomputedIds = new Set(precomputedRulesets.map((r) => r.id));
+    const filteredInitial = INITIAL_RULESETS.filter((r) => !precomputedIds.has(r.id));
+    return [...filteredInitial, ...precomputedRulesets];
+  });
+
   const [dataMap, setDataMap] = useState<Record<string, MetricData>>(() => {
-    const initialMap: Record<string, MetricData> = {};
+    const { precomputedDataMap } = buildPrecomputedState();
+    const initialMap: Record<string, MetricData> = { ...precomputedDataMap };
+
     INITIAL_RULESETS.forEach((r) => {
-      initialMap[r.id] = {
-        words: 0,
-        characters: 0,
-        content: '',
-        wordSet: new Set(),
-        wordCounts: new Map(),
-        loading: true,
-        error: null,
-      };
+      if (!initialMap[r.id]) {
+        initialMap[r.id] = {
+          words: 0,
+          characters: 0,
+          content: '',
+          wordSet: new Set(),
+          wordCounts: new Map(),
+          loading: true,
+          error: null,
+        };
+      }
     });
+
     return initialMap;
   });
 
-  const [activeTabId, setActiveTabId] = useState<string>(INITIAL_RULESETS[0].id);
+  const [activeTabId, setActiveTabId] = useState<string>(INITIAL_RULESETS[0]?.id || rulesets[0]?.id || 'nomic');
   const [showRawText, setShowRawText] = useState<boolean>(false);
   const [showTopWordsHelp, setShowTopWordsHelp] = useState<boolean>(false);
   const [showUniqueWordsHelp, setShowUniqueWordsHelp] = useState<boolean>(false);
   const [selectedTopWord, setSelectedTopWord] = useState<string | null>(null);
 
-  // Load local import-template.txt on initialization
+  // Load new ruleset from import-template.txt
   useEffect(() => {
     let isMounted = true;
 
@@ -52,7 +91,6 @@ export function App() {
         const linkUrl = lines[1] ? lines[1].trim() : '#';
         const id = name.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-        // Set homeUrl to '#' for imported local templates so "View Game" is omitted
         const homeUrl = '#';
 
         const contentBody = lines.slice(2).join('\n');
@@ -69,8 +107,21 @@ export function App() {
 
         if (!isMounted) return;
 
-        // Strictly set rulesets to INITIAL_RULESETS + 1 imported template (4 tabs total)
-        setRulesets([...INITIAL_RULESETS, newRuleset]);
+        setRulesets((prev) => {
+          // If a ruleset with this ID already exists, update it rather than duplicating
+          if (prev.some((r) => r.id === id)) {
+            return prev.map((r) => (r.id === id ? newRuleset : r));
+          }
+          // Place newly loaded template before the precomputed tabs
+          const { precomputedRulesets } = buildPrecomputedState();
+          const precomputedIds = new Set(precomputedRulesets.map((r) => r.id));
+
+          const nonPrecomputed = prev.filter((r) => !precomputedIds.has(r.id));
+          const precomputed = prev.filter((r) => precomputedIds.has(r.id));
+
+          return [...nonPrecomputed, newRuleset, ...precomputed];
+        });
+
         setDataMap((prev) => ({
           ...prev,
           [id]: {
@@ -95,7 +146,7 @@ export function App() {
     };
   }, []);
 
-  // Fetch metrics whenever the rulesets array changes
+  // Fetch metrics only for rulesets that aren't loaded yet
   useEffect(() => {
     rulesets.forEach((ruleset) => {
       if (dataMap[ruleset.id] && !dataMap[ruleset.id].loading && !dataMap[ruleset.id].error) {
@@ -118,8 +169,63 @@ export function App() {
     });
   }, [rulesets]);
 
+  // Handler to export current computed metrics into a strongly-typed .ts file (Local files only)
+  const handleExportTs = () => {
+    const localRulesets = rulesets.filter(
+      (r) => r.fetchUrl.startsWith('./') || r.fetchUrl.startsWith('blob:')
+    );
+
+    const exportData = localRulesets.map((r) => {
+      const metrics = dataMap[r.id];
+      return {
+        id: r.id,
+        name: r.name,
+        linkUrl: r.linkUrl,
+        homeUrl: r.homeUrl,
+        content: metrics?.content || '',
+        metrics: {
+          words: metrics?.words || 0,
+          characters: metrics?.characters || 0,
+          uniqueWordCount: metrics?.wordSet?.size || 0,
+          wordSet: metrics?.wordSet ? Array.from(metrics.wordSet) : [],
+          wordCounts: metrics?.wordCounts ? Object.fromEntries(metrics.wordCounts) : {},
+        },
+      };
+    });
+
+    const tsContent = `// Auto-generated precomputed ruleset data (Local files only)
+export interface PrecomputedRuleset {
+  id: string;
+  name: string;
+  linkUrl: string;
+  homeUrl: string;
+  content: string;
+  metrics: {
+    words: number;
+    characters: number;
+    uniqueWordCount: number;
+    wordSet: string[];
+    wordCounts: Record<string, number>;
+  };
+}
+
+export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(exportData, null, 2)};
+`;
+
+    const blob = new Blob([tsContent], { type: 'text/typescript' });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'precomputedRulesets.ts';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const currentRuleset = rulesets.find((r) => r.id === activeTabId) || rulesets[0];
-  const currentMetrics = dataMap[currentRuleset.id];
+  const currentMetrics = dataMap[currentRuleset?.id];
 
   const comparisons = useMemo(() => {
     if (!currentMetrics || currentMetrics.loading || currentMetrics.error) return [];
@@ -219,8 +325,8 @@ export function App() {
   }, [currentRuleset, currentMetrics, dataMap, rulesets]);
 
   const akaListWords = useMemo(() => {
-    return getDistinctTopWords(topWords, currentRuleset.name, 4);
-  }, [topWords, currentRuleset.name]);
+    return getDistinctTopWords(topWords, currentRuleset?.name || '', 4);
+  }, [topWords, currentRuleset]);
 
   return (
     <div className="app-container">
@@ -245,9 +351,9 @@ export function App() {
         })}
       </div>
 
-      {currentMetrics?.loading ? (
+      {!currentMetrics || currentMetrics.loading ? (
         <p>Loading ruleset data...</p>
-      ) : currentMetrics?.error ? (
+      ) : currentMetrics.error ? (
         <p className="error-text">
           Error loading {currentRuleset.name}: {currentMetrics.error}
         </p>
@@ -448,10 +554,16 @@ export function App() {
           </a>
         </div>
 
-        <div className="header-links">
+        <div className="header-links" style={{ marginBottom: '16px' }}>
           <a href="https://github.com/cieok/nomicinfra" target="_blank" rel="noreferrer" className="external-link">
             GitHub repository of this page ↗
           </a>
+        </div>
+
+        <div>
+          <button onClick={handleExportTs} className="preview-toggle-button">
+            ⬇️ Export Precomputed TS File
+          </button>
         </div>
       </div>
     </div>
