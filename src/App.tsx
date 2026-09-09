@@ -74,49 +74,74 @@ export function App() {
   const [showUniqueWordsHelp, setShowUniqueWordsHelp] = useState<boolean>(false);
   const [selectedTopWord, setSelectedTopWord] = useState<string | null>(null);
 
-  // Load imported rulesets dynamically from the /import directory
+  // Load imported rulesets dynamically from the /static directory with detailed logging
   useEffect(() => {
     let isMounted = true;
 
     const loadImportedRulesets = async () => {
+      console.log('[Static Loader] Starting import scan for ./static/*.txt files...');
       try {
         // Collect precomputed IDs to filter against
         const { precomputedRulesets } = buildPrecomputedState();
         const precomputedIds = new Set(precomputedRulesets.map((r) => r.id));
+        console.log('[Static Loader] Precomputed Ruleset IDs:', Array.from(precomputedIds));
 
-        // Dynamically match all .txt files inside the ./import/ folder
-        const importFiles = import.meta.glob('./import/*.txt', { query: '?raw', import: 'default' });
+        // Dynamically match all .txt files inside the ./static/ folder
+        const importFiles = import.meta.glob('./static/*.txt', { query: '?raw', import: 'default' });
+        const filePaths = Object.keys(importFiles);
+
+        console.log(`[Static Loader] Found ${filePaths.length} matching file(s) in ./static/:`, filePaths);
+
+        if (filePaths.length === 0) {
+          console.warn('[Static Loader] No .txt files were matched by import.meta.glob in ./static/');
+          return;
+        }
 
         const importedRulesets: RulesetConfig[] = [];
         const importedDataMapEntries: [string, MetricData][] = [];
 
-        for (const path in importFiles) {
-          // Extract file basename (e.g., './import/myRuleset.txt' -> 'myruleset')
-          const fileName = path.split('/').pop()?.replace(/\.txt$/, '') || '';
-          const basenameId = fileName.toLowerCase().replace(/[^a-z0-9]/g, '');
+        for (const path of filePaths) {
+          console.group(`[Static Loader] Processing file: ${path}`);
 
-          // Skip importing if the basename is already present in precomputed rulesets
-          if (precomputedIds.has(basenameId)) {
-            continue;
-          }
+          // Extract file basename (e.g., './static/original.txt' -> 'original')
+          const rawFileName = path.split('/').pop()?.replace(/\.txt$/, '') || '';
+          const id = rawFileName.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-          const rawText = (await importFiles[path]()) as string;
-          const lines = rawText.trim().split('\n');
-          if (lines.length === 0 || !lines[0].trim()) continue;
-
-          const name = lines[0].trim();
-          const linkUrl = lines[1] ? lines[1].trim() : '#';
-          const id = name.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-          // Ensure processed ID is not precomputed either
+          // Skip importing if the basename ID is already present in precomputed rulesets
           if (precomputedIds.has(id)) {
+            console.log(`[Static Loader] Skipping '${path}' — ID '${id}' is already precomputed.`);
+            console.groupEnd();
             continue;
           }
+
+          // Generate display name from filename with capital first letter (e.g. "original" -> "Original")
+          const name = rawFileName ? rawFileName.charAt(0).toUpperCase() + rawFileName.slice(1) : 'Untitled';
+
+          let rawText = '';
+          try {
+            rawText = (await importFiles[path]()) as string;
+            console.log(`[Static Loader] Successfully fetched raw text for '${path}' (${rawText.length} characters)`);
+          } catch (fileErr) {
+            console.error(`[Static Loader] Failed to execute module loader for '${path}':`, fileErr);
+            console.groupEnd();
+            continue;
+          }
+
+          const lines = rawText.trim().split('\n');
+
+          // Line 1 is the ruleset URL
+          const linkUrl = lines[0] ? lines[0].trim() : '#';
+          
+          // Line 2 onwards is the text content body
+          const contentBody = lines.slice(1).join('\n');
+
+          console.log(`[Static Loader] Extracted -> Name: "${name}", ID: "${id}", Link URL: "${linkUrl}"`);
 
           const homeUrl = '#';
-          const contentBody = lines.slice(2).join('\n');
           const blob = new Blob([contentBody], { type: 'text/plain' });
           const objectUrl = URL.createObjectURL(blob);
+
+          console.log(`[Static Loader] Created Blob URL '${objectUrl}' for "${name}" (${contentBody.length} chars of content)`);
 
           importedRulesets.push({
             id,
@@ -138,9 +163,21 @@ export function App() {
               error: null,
             },
           ]);
+
+          console.groupEnd();
         }
 
-        if (!isMounted || importedRulesets.length === 0) return;
+        if (!isMounted) {
+          console.log('[Static Loader] Component unmounted prior to state update. Aborting.');
+          return;
+        }
+
+        if (importedRulesets.length === 0) {
+          console.warn('[Static Loader] Scan finished, but no new valid rulesets were added to state.');
+          return;
+        }
+
+        console.log(`[Static Loader] Successfully imported ${importedRulesets.length} ruleset(s). Updating state...`);
 
         setRulesets((prev) => {
           const nonPrecomputed = prev.filter((r) => !precomputedIds.has(r.id));
@@ -165,7 +202,7 @@ export function App() {
           ...Object.fromEntries(importedDataMapEntries),
         }));
       } catch (e) {
-        console.warn('Failed to import rulesets from /import directory:', e);
+        console.error('[Static Loader] Critical failure importing rulesets from /static directory:', e);
       }
     };
 

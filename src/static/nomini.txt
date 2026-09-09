@@ -1,0 +1,55 @@
+https://crowsworthy.itch.io/nomini
+The Constitution of Nomini
+Version 0.7 | Copyright 2024 Chloe Baldwin
+Released under CC-BY-SA 4.0 License
+
+Consider The Law you produce while playing a Nomini to be a derivative work. If you publish it anywhere, you must include the following attribution and license notice, replacing the bits in square brackets with the appropriate information:
+
+[your Nomini] is published under the CC-BY-SA 4.0 License.
+
+This Nomini traces its development through the following Nominis:
+Nomini v0.7 by Chloe Baldwin (Crowsworth): https://crowsworth.itch.io/nomini
+[a line for each other Nomini leading up to your own]
+
+If you make a Nomini based on this one, in addition to the Nominis attributed above, add the following to your attribution:
+[your Nomini] [version/edition/date] by [your agreed-upon attribution]: [wherever the game can be accessed, acquired or inquired about]
+Article 1. The Spirit of Nomini
+Nomini is a Nomic, a type of game where you play with the rules themselves. Together you build, destroy, amend, analyze and judge the rules. You might win or lose; cooperate or compete; play fair or cheat (and maybe pay a price for it); bring the game to a peaceful end or explode it in paradoxes. Anything can happen when you play Nomini—the goal is to enjoy collaborating just to find out what happens when you do. In the words of Agora, treat Nomini and the other players right good forever.
+
+Article 2. The Law
+At the start of the game, the players shall ratify a charter founding their new Nomini, signing themselves on as players thereof and putting into effect this Constitution of Nomini as well as any other articles they elect to include. Thereafter all players must abide by all the rules of the game in the form in which they are currently in effect. Together, these rules and the documents that contain them constitute The Law.
+
+Article 3. Actions
+Players may take any action not prohibited by The Law by publicizing their intent to act and the effects of their action, which effects are to be made actual if and only if the action succeeds.
+
+To publicize, also publication, is to make something unambiguously known to all players in all necessary detail. An action succeeds if and only if it meets all requirements to perform that action and passes all tests for its success, as specified by The Law. If The Law specifies no requirements or tests for an action, it succeeds automatically.
+
+3. a. Legislation
+Actions that change The Law must be publicized in an unambiguously finalized and permanent form and shall be put to a vote by all players, where each player may either approve or not approve the action, to succeed if an absolute majority approves.
+
+3. b. Calls for Judgment
+A Call for Judgment (CFJ) over cases of uncertainty in the interpretation of The Law, a question of the validity of an action or effect, or the perception of any thing to be in violation of The Law, shall succeed if seconded. The acting player must include in their publication a summary of the question or case at issue.
+
+3. c. Other Actions
+Unless defined elsewhere in The Law, all other actions shall be put to a vote by all players, where each player may either approve or object. The action succeeds if the number of approvals exceeds a third of the players plus one for each objection.
+
+Article 4. Judgment
+Upon the success of a Call for Judgment, the players shall elect a judge to rule on the issue. Every player, except the player who made the CFJ and those whose actions are at issue, is an eligible candidate. Each player may object to any or all of the candidates, including themselves. The single candidate with the fewest objections shall be appointed judge. If no candidate avails, the CFJ ends with no ruling.
+
+It is the duty of the judge to deliver a fair ruling on the issue for which they have been elected. Each player shall be afforded the opportunity to voice their position and argument on the issue for the judge to consider. Thereafter, with due deliberation, the judge shall publicize their final ruling. Said ruling is effective from the moment of its publication.
+
+Rulings may freely enact any rule or effect within the bounds of the issue, but may only institute persistent changes to the game, such as overruling future judgment, ousting players, or changing The Law, by issuing them as one or more actions.
+
+Article 5. Life and Renewal
+Players may leave the game freely. Players may add newcomers to the charter with an action.
+
+Play Nomini until you have found out. Play until the game is perfect. Play until the game is utterly broken. Play for as long as you are enjoying it. Play until you want to find something else out and then start a new Nomini. If that new Nomini is based on the one you're playing right now, that's called a Renewal. The founders of a Renewal are free to copy The Law in full or in part, to edit or alter it, and to add to it rules of their own devising or from other Nominis.
+
+Let Nomini be held in common by all.
+
+Credit
+Nomic is the original creation of Peter Suber.
+
+The new Nomini gavel icon is derived from Delapouite's "Banging gavel icon," and is Copyright 2025 Chloe Baldwin. All rights reserved.
+
+The old Nomini gavel icon is derived from Lorc's "Gavel icon," and is released under CC BY 4.0 International.
