@@ -550,6 +550,24 @@ export function App() {
           </div>
         </div>
       )}
+
+      {/* Manual Comparisons & Repository Footer Links */}
+      <div className="card" style={{ marginTop: '24px' }}>
+        <div className="header-links" style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '16px' }}>
+          <a href="https://nomic.fandom.com/wiki/Leaderboards" target="_blank" rel="noreferrer" className="external-link">
+            Manual Comparisons ↗
+          </a>
+          <a href="https://kiako.me/nomic/" target="_blank" rel="noreferrer" className="external-link">
+            Introduction to Nomic ↗
+          </a>
+        </div>
+
+        <div className="header-links">
+          <a href="https://github.com/cieok/nomicinfra" target="_blank" rel="noreferrer" className="external-link">
+            GitHub repository of this page ↗
+          </a>
+        </div>
+      </div>
     </div>
   );
 }
