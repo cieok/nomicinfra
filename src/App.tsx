@@ -74,72 +74,102 @@ export function App() {
   const [showUniqueWordsHelp, setShowUniqueWordsHelp] = useState<boolean>(false);
   const [selectedTopWord, setSelectedTopWord] = useState<string | null>(null);
 
-  // Load new ruleset from import-template.txt
+  // Load imported rulesets dynamically from the /import directory
   useEffect(() => {
     let isMounted = true;
 
-    const loadImportedRuleset = async () => {
+    const loadImportedRulesets = async () => {
       try {
-        const res = await fetch('./import-template.txt');
-        if (!res.ok || !isMounted) return;
+        // Collect precomputed IDs to filter against
+        const { precomputedRulesets } = buildPrecomputedState();
+        const precomputedIds = new Set(precomputedRulesets.map((r) => r.id));
 
-        const rawText = await res.text();
-        const lines = rawText.trim().split('\n');
-        if (lines.length === 0 || !lines[0].trim()) return;
+        // Dynamically match all .txt files inside the ./import/ folder
+        const importFiles = import.meta.glob('./import/*.txt', { query: '?raw', import: 'default' });
 
-        const name = lines[0].trim();
-        const linkUrl = lines[1] ? lines[1].trim() : '#';
-        const id = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const importedRulesets: RulesetConfig[] = [];
+        const importedDataMapEntries: [string, MetricData][] = [];
 
-        const homeUrl = '#';
+        for (const path in importFiles) {
+          // Extract file basename (e.g., './import/myRuleset.txt' -> 'myruleset')
+          const fileName = path.split('/').pop()?.replace(/\.txt$/, '') || '';
+          const basenameId = fileName.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-        const contentBody = lines.slice(2).join('\n');
-        const blob = new Blob([contentBody], { type: 'text/plain' });
-        const objectUrl = URL.createObjectURL(blob);
+          // Skip importing if the basename is already present in precomputed rulesets
+          if (precomputedIds.has(basenameId)) {
+            continue;
+          }
 
-        const newRuleset: RulesetConfig = {
-          id,
-          name,
-          fetchUrl: objectUrl,
-          linkUrl,
-          homeUrl,
-        };
+          const rawText = (await importFiles[path]()) as string;
+          const lines = rawText.trim().split('\n');
+          if (lines.length === 0 || !lines[0].trim()) continue;
 
-        if (!isMounted) return;
+          const name = lines[0].trim();
+          const linkUrl = lines[1] ? lines[1].trim() : '#';
+          const id = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+          // Ensure processed ID is not precomputed either
+          if (precomputedIds.has(id)) {
+            continue;
+          }
+
+          const homeUrl = '#';
+          const contentBody = lines.slice(2).join('\n');
+          const blob = new Blob([contentBody], { type: 'text/plain' });
+          const objectUrl = URL.createObjectURL(blob);
+
+          importedRulesets.push({
+            id,
+            name,
+            fetchUrl: objectUrl,
+            linkUrl,
+            homeUrl,
+          });
+
+          importedDataMapEntries.push([
+            id,
+            {
+              words: 0,
+              characters: 0,
+              content: '',
+              wordSet: new Set(),
+              wordCounts: new Map(),
+              loading: true,
+              error: null,
+            },
+          ]);
+        }
+
+        if (!isMounted || importedRulesets.length === 0) return;
 
         setRulesets((prev) => {
-          // If a ruleset with this ID already exists, update it rather than duplicating
-          if (prev.some((r) => r.id === id)) {
-            return prev.map((r) => (r.id === id ? newRuleset : r));
-          }
-          // Place newly loaded template before the precomputed tabs
-          const { precomputedRulesets } = buildPrecomputedState();
-          const precomputedIds = new Set(precomputedRulesets.map((r) => r.id));
-
           const nonPrecomputed = prev.filter((r) => !precomputedIds.has(r.id));
           const precomputed = prev.filter((r) => precomputedIds.has(r.id));
 
-          return [...nonPrecomputed, newRuleset, ...precomputed];
+          // Merge and deduplicate imported rulesets with current state
+          const updatedNonPrecomputed = [...nonPrecomputed];
+          importedRulesets.forEach((newRule) => {
+            const index = updatedNonPrecomputed.findIndex((r) => r.id === newRule.id);
+            if (index >= 0) {
+              updatedNonPrecomputed[index] = newRule;
+            } else {
+              updatedNonPrecomputed.push(newRule);
+            }
+          });
+
+          return [...updatedNonPrecomputed, ...precomputed];
         });
 
         setDataMap((prev) => ({
           ...prev,
-          [id]: {
-            words: 0,
-            characters: 0,
-            content: '',
-            wordSet: new Set(),
-            wordCounts: new Map(),
-            loading: true,
-            error: null,
-          },
+          ...Object.fromEntries(importedDataMapEntries),
         }));
       } catch (e) {
-        console.warn('Failed to import local import-template.txt file:', e);
+        console.warn('Failed to import rulesets from /import directory:', e);
       }
     };
 
-    loadImportedRuleset();
+    loadImportedRulesets();
 
     return () => {
       isMounted = false;
@@ -560,9 +590,22 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
           </a>
         </div>
 
-        <div>
-          <button onClick={handleExportTs} className="preview-toggle-button">
-            ⬇️ Export Precomputed TS File
+        <div style={{ marginTop: '12px', textAlign: 'right' }}>
+          <button
+            onClick={handleExportTs}
+            aria-label="Export"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'rgba(0, 0, 0, 0.08)',
+              fontSize: '0.7rem',
+              cursor: 'pointer',
+              padding: '2px 4px',
+              outline: 'none',
+              boxShadow: 'none',
+            }}
+          >
+            .
           </button>
         </div>
       </div>
