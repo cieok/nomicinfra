@@ -36,6 +36,7 @@ const RULESETS: RulesetConfig[] = [
   },
 ];
 
+// Structural, procedural, or meta words strictly forbidden from appearing in AKA titles
 const BANNED_AKA_WORDS = new Set([
   'decision',
   'decisions',
@@ -91,6 +92,9 @@ function formatSizeComparison(currentWords: number, targetWords: number): string
   }
 }
 
+/**
+ * Robust check to see if two words share a common root stem
+ */
 function shareCommonStem(w1: string, w2: string): boolean {
   const minLength = Math.min(w1.length, w2.length);
   const prefixLength = Math.min(4, minLength);
@@ -101,6 +105,9 @@ function shareCommonStem(w1: string, w2: string): boolean {
   return w1.includes(w2) || w2.includes(w1);
 }
 
+/**
+ * Selects top distinct words guaranteed to exclude banned words and duplicate word roots.
+ */
 function getDistinctTopWords(
   topWordsList: { word: string; score: number; count: number }[],
   baseName: string,
@@ -148,8 +155,12 @@ export function App() {
   const [activeTabId, setActiveTabId] = useState<string>(RULESETS[0].id);
   const [showRawText, setShowRawText] = useState<boolean>(false);
   
+  // State toggles for explanations
   const [showTopWordsHelp, setShowTopWordsHelp] = useState<boolean>(false);
   const [showUniqueWordsHelp, setShowUniqueWordsHelp] = useState<boolean>(false);
+  
+  // State toggle for selected word details in Top Words
+  const [selectedTopWord, setSelectedTopWord] = useState<string | null>(null);
 
   const fetchMetrics = async (ruleset: RulesetConfig): Promise<Omit<MetricData, 'loading' | 'error'>> => {
     const res = await fetch(ruleset.fetchUrl);
@@ -231,6 +242,7 @@ export function App() {
     });
   }, [currentRuleset, currentMetrics, dataMap]);
 
+  // Unique Words list
   const uniqueWordsWithCounts = useMemo(() => {
     if (!currentMetrics || currentMetrics.loading || currentMetrics.error) return [];
 
@@ -257,6 +269,7 @@ export function App() {
     return uniqueList.sort((a, b) => b.count - a.count || a.word.localeCompare(b.word));
   }, [currentRuleset, currentMetrics, dataMap]);
 
+  // Top Words list (Smoothed Relative Frequency)
   const topWords = useMemo(() => {
     if (!currentMetrics || currentMetrics.loading || currentMetrics.error) return [];
 
@@ -302,6 +315,7 @@ export function App() {
     return scoredList.sort((a, b) => b.score - a.score).slice(0, 150);
   }, [currentRuleset, currentMetrics, dataMap]);
 
+  // Derive top 4 distinct words for AKA titles
   const akaListWords = useMemo(() => {
     return getDistinctTopWords(topWords, currentRuleset.name, 4);
   }, [topWords, currentRuleset.name]);
@@ -310,6 +324,7 @@ export function App() {
     <div className="app-container">
       <h1>Nomic games comparison</h1>
 
+      {/* Navigation Tabs */}
       <div className="nav-tabs">
         {RULESETS.map((ruleset) => {
           const isActive = ruleset.id === activeTabId;
@@ -319,6 +334,7 @@ export function App() {
               onClick={() => {
                 setActiveTabId(ruleset.id);
                 setShowRawText(false);
+                setSelectedTopWord(null);
               }}
               className={`tab-button ${isActive ? 'active' : ''}`}
             >
@@ -328,6 +344,7 @@ export function App() {
         })}
       </div>
 
+      {/* Main View for Active Nomic */}
       {currentMetrics.loading ? (
         <p>Loading ruleset data...</p>
       ) : currentMetrics.error ? (
@@ -336,6 +353,7 @@ export function App() {
         </p>
       ) : (
         <div>
+          {/* Header Info with AKA Titles */}
           <div className="header-container">
             <div>
               <h2 className="title-primary">{currentRuleset.name}</h2>
@@ -358,6 +376,7 @@ export function App() {
             </div>
           </div>
 
+          {/* Top Words Section */}
           <div className="card">
             <div className="section-header">
               <h3>Top Words in Ruleset</h3>
@@ -382,16 +401,19 @@ export function App() {
             <div className="words-container top-words-container">
               {topWords.length > 0 ? (
                 topWords.map(({ word, score, count }) => {
+                  const textContent = `Appears ${count} times. ${score.toFixed(1)}x more frequent than in normalized ruleset.`;
+                  const isSelected = selectedTopWord === word;
+
                   return (
                     <span
                       key={word}
-                      title={`Appears ${count} times. ${score.toFixed(1)}x more frequent than in normalized ruleset.`}
-                      className="word-badge help-cursor"
+                      title={textContent}
+                      onClick={() => setSelectedTopWord(isSelected ? null : word)}
+                      className={`word-badge help-cursor ${isSelected ? 'selected-badge' : ''}`}
+                      style={{ cursor: 'pointer' }}
                     >
                       <span>{word}</span>
-                      <span className="count-pill">
-                        {count}
-                      </span>
+                      <span className="count-pill">{count}</span>
                     </span>
                   );
                 })
@@ -399,8 +421,39 @@ export function App() {
                 <span className="empty-words-text">No top words found.</span>
               )}
             </div>
+
+            {/* Active Toggled Word Card */}
+            {selectedTopWord && (() => {
+              const activeItem = topWords.find((item) => item.word === selectedTopWord);
+              if (!activeItem) return null;
+              const detailText = `Appears ${activeItem.count} times. ${activeItem.score.toFixed(1)}x more frequent than in normalized ruleset.`;
+
+              return (
+                <div 
+                  className="help-text"
+                  title={detailText}
+                  style={{ 
+                    marginTop: '12px', 
+                    display: 'flex', 
+                    justify: 'space-between', 
+                    alignItems: 'center' 
+                  }}
+                >
+                  <span>
+                    <strong>{activeItem.word}:</strong> {detailText}
+                  </span>
+                  <button 
+                    onClick={() => setSelectedTopWord(null)} 
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              );
+            })()}
           </div>
 
+          {/* Core Metrics Totals */}
           <div className="metrics-grid">
             <div className="metric-card">
               <div className="metric-label">Ruleset size</div>
@@ -414,6 +467,7 @@ export function App() {
             </div>
           </div>
 
+          {/* Similarity Analysis Section */}
           <div className="card">
             <h3 style={{ marginTop: 0 }}>Similarity to Other Nomics</h3>
 
@@ -444,6 +498,7 @@ export function App() {
             </div>
           </div>
 
+          {/* Unique Words Section */}
           <div className="card">
             <div className="section-header">
               <h3>Unique Words in Ruleset</h3>
@@ -479,6 +534,7 @@ export function App() {
             </div>
           </div>
 
+          {/* Ruleset Preview Toggle */}
           <div>
             <button
               onClick={() => setShowRawText(!showRawText)}
