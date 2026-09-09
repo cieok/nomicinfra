@@ -435,7 +435,6 @@ export function App() {
                   style={{ 
                     marginTop: '12px', 
                     display: 'flex', 
-                    justify: 'space-between', 
                     alignItems: 'center' 
                   }}
                 >
