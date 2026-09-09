@@ -12,14 +12,20 @@ import {
 } from './utils/rulesetAnalysis';
 import { PRECOMPUTED_RULESETS } from './precomputedRulesets';
 
+// Interface extending ruleset configuration with explicit grouping
+export interface CategorizedRulesetConfig extends RulesetConfig {
+  category: 'Templates' | 'Games';
+}
+
 // Convert precomputed items into RulesetConfig and MetricData formats
 function buildPrecomputedState() {
-  const precomputedRulesets: RulesetConfig[] = PRECOMPUTED_RULESETS.map((p) => ({
+  const precomputedRulesets: CategorizedRulesetConfig[] = PRECOMPUTED_RULESETS.map((p) => ({
     id: p.id,
     name: p.name,
     fetchUrl: './', // Dummy path since content is pre-loaded
     linkUrl: p.linkUrl,
     homeUrl: p.homeUrl,
+    category: 'Templates',
   }));
 
   const precomputedDataMap: Record<string, MetricData> = {};
@@ -39,11 +45,15 @@ function buildPrecomputedState() {
 }
 
 export function App() {
-  const [rulesets, setRulesets] = useState<RulesetConfig[]>(() => {
+  const [rulesets, setRulesets] = useState<CategorizedRulesetConfig[]>(() => {
     const { precomputedRulesets } = buildPrecomputedState();
-    // Keep initial rulesets first, and place precomputed rulesets at the end
     const precomputedIds = new Set(precomputedRulesets.map((r) => r.id));
-    const filteredInitial = INITIAL_RULESETS.filter((r) => !precomputedIds.has(r.id));
+
+    // Initial fetched rulesets default to Games
+    const filteredInitial: CategorizedRulesetConfig[] = INITIAL_RULESETS
+      .filter((r) => !precomputedIds.has(r.id))
+      .map((r) => ({ ...r, category: 'Games' }));
+
     return [...filteredInitial, ...precomputedRulesets];
   });
 
@@ -74,7 +84,7 @@ export function App() {
   const [showUniqueWordsHelp, setShowUniqueWordsHelp] = useState<boolean>(false);
   const [selectedTopWord, setSelectedTopWord] = useState<string | null>(null);
 
-  // Load imported rulesets dynamically from the /templates directory
+  // Load imported template rulesets dynamically from the /templates directory
   useEffect(() => {
     let isMounted = true;
 
@@ -83,28 +93,20 @@ export function App() {
         const { precomputedRulesets } = buildPrecomputedState();
         const precomputedIds = new Set(precomputedRulesets.map((r) => r.id));
 
-        // Dynamically match all .txt files inside the ./templates/ folder
         const importFiles = import.meta.glob('./templates/*.txt', { query: '?raw', import: 'default' });
         const filePaths = Object.keys(importFiles);
 
-        if (filePaths.length === 0) {
-          return;
-        }
+        if (filePaths.length === 0) return;
 
-        const importedRulesets: RulesetConfig[] = [];
+        const importedRulesets: CategorizedRulesetConfig[] = [];
         const importedDataMapEntries: [string, MetricData][] = [];
 
         for (const path of filePaths) {
-          // Extract file basename (e.g., './templates/original.txt' -> 'original')
           const rawFileName = path.split('/').pop()?.replace(/\.txt$/, '') || '';
           const id = rawFileName.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-          // Skip importing if the basename ID is already present in precomputed rulesets
-          if (precomputedIds.has(id)) {
-            continue;
-          }
+          if (precomputedIds.has(id)) continue;
 
-          // Generate display name from filename with capital first letter (e.g. "original" -> "Original")
           const name = rawFileName ? rawFileName.charAt(0).toUpperCase() + rawFileName.slice(1) : 'Untitled';
 
           let rawText = '';
@@ -116,14 +118,9 @@ export function App() {
           }
 
           const lines = rawText.trim().split('\n');
-
-          // Line 1 is the ruleset URL
           const linkUrl = lines[0] ? lines[0].trim() : '#';
-          
-          // Line 2 onwards is the text content body
           const contentBody = lines.slice(1).join('\n');
 
-          const homeUrl = '#';
           const blob = new Blob([contentBody], { type: 'text/plain' });
           const objectUrl = URL.createObjectURL(blob);
 
@@ -132,7 +129,8 @@ export function App() {
             name,
             fetchUrl: objectUrl,
             linkUrl,
-            homeUrl,
+            homeUrl: '#',
+            category: 'Templates', // Local template files grouped under Templates
           });
 
           importedDataMapEntries.push([
@@ -149,26 +147,23 @@ export function App() {
           ]);
         }
 
-        if (!isMounted || importedRulesets.length === 0) {
-          return;
-        }
+        if (!isMounted || importedRulesets.length === 0) return;
 
         setRulesets((prev) => {
-          const nonPrecomputed = prev.filter((r) => !precomputedIds.has(r.id));
-          const precomputed = prev.filter((r) => precomputedIds.has(r.id));
+          const games = prev.filter((r) => r.category === 'Games');
+          const templates = prev.filter((r) => r.category === 'Templates');
 
-          // Merge and deduplicate imported rulesets with current state
-          const updatedNonPrecomputed = [...nonPrecomputed];
+          const updatedTemplates = [...templates];
           importedRulesets.forEach((newRule) => {
-            const index = updatedNonPrecomputed.findIndex((r) => r.id === newRule.id);
+            const index = updatedTemplates.findIndex((r) => r.id === newRule.id);
             if (index >= 0) {
-              updatedNonPrecomputed[index] = newRule;
+              updatedTemplates[index] = newRule;
             } else {
-              updatedNonPrecomputed.push(newRule);
+              updatedTemplates.push(newRule);
             }
           });
 
-          return [...updatedNonPrecomputed, ...precomputed];
+          return [...games, ...updatedTemplates];
         });
 
         setDataMap((prev) => ({
@@ -186,6 +181,14 @@ export function App() {
       isMounted = false;
     };
   }, []);
+
+  // Group rulesets into categorized sets
+  const groupedRulesets = useMemo(() => {
+    return {
+      Games: rulesets.filter((r) => r.category === 'Games'),
+      Templates: rulesets.filter((r) => r.category === 'Templates'),
+    };
+  }, [rulesets]);
 
   // Fetch metrics only for rulesets that aren't loaded yet
   useEffect(() => {
@@ -210,7 +213,6 @@ export function App() {
     });
   }, [rulesets]);
 
-  // Handler to export current computed metrics into a strongly-typed .ts file (Local files only)
   const handleExportTs = () => {
     const localRulesets = rulesets.filter(
       (r) => r.fetchUrl.startsWith('./') || r.fetchUrl.startsWith('blob:')
@@ -371,254 +373,279 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
 
   return (
     <div className="app-container">
-      <h1>Nomic ruleset comparison</h1>
+      <header className="app-header">
+        <h1>Nomic ruleset comparison</h1>
+      </header>
 
-      <div className="nav-tabs">
-        {rulesets.map((ruleset) => {
-          const isActive = ruleset.id === activeTabId;
-          return (
-            <button
-              key={ruleset.id}
-              onClick={() => {
-                setActiveTabId(ruleset.id);
-                setShowRawText(false);
-                setSelectedTopWord(null);
-              }}
-              className={`tab-button ${isActive ? 'active' : ''}`}
-            >
-              {ruleset.name}
-            </button>
-          );
-        })}
-      </div>
+      <div className="layout-body">
+        {/* Sidebar Navigation */}
+        <aside className="sidebar-nav">
+          {Object.entries(groupedRulesets).map(([category, items]) => {
+            if (items.length === 0) return null;
+            return (
+              <div key={category} className="nav-group">
+                <div className="group-label">{category}</div>
+                <div className="nav-list">
+                  {items.map((ruleset) => {
+                    const isActive = ruleset.id === activeTabId;
+                    return (
+                      <button
+                        key={ruleset.id}
+                        onClick={() => {
+                          setActiveTabId(ruleset.id);
+                          setShowRawText(false);
+                          setSelectedTopWord(null);
+                        }}
+                        className={`nav-item ${isActive ? 'active' : ''}`}
+                      >
+                        {ruleset.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </aside>
 
-      {!currentMetrics || currentMetrics.loading ? (
-        <p>Loading ruleset data...</p>
-      ) : currentMetrics.error ? (
-        <p className="error-text">
-          Error loading {currentRuleset.name}: {currentMetrics.error}
-        </p>
-      ) : (
-        <div>
-          <div className="header-container">
+        {/* Main Content Area */}
+        <main className="main-content">
+          {!currentMetrics || currentMetrics.loading ? (
+            <p>Loading ruleset data...</p>
+          ) : currentMetrics.error ? (
+            <p className="error-text">
+              Error loading {currentRuleset.name}: {currentMetrics.error}
+            </p>
+          ) : (
             <div>
-              <h2 className="title-primary">{currentRuleset.name}</h2>
-              {akaListWords.length > 0 && (
-                <p className="aka-subtitle">
-                  aka{' '}
-                  {akaListWords
-                    .map((word) => `${word.charAt(0).toUpperCase() + word.slice(1)} Nomic`)
-                    .join(' aka ') + ' 😉'}
-                </p>
-              )}
-            </div>
-            <div className="header-links">
-              {currentRuleset.homeUrl !== '#' && (
-                <a href={currentRuleset.homeUrl} target="_blank" rel="noreferrer" className="external-link">
-                  View Game ↗
-                </a>
-              )}
-              {currentRuleset.linkUrl !== '#' && (
-                <a href={currentRuleset.linkUrl} target="_blank" rel="noreferrer" className="external-link">
-                  View Ruleset ↗
-                </a>
-              )}
-            </div>
-          </div>
-
-          <div className="card">
-            <div className="section-header">
-              <h3>Top Words in Ruleset</h3>
-              <button
-                onClick={() => setShowTopWordsHelp(!showTopWordsHelp)}
-                className="help-button"
-                title={HELP_TEXTS.topWords(currentRuleset.name)}
-              >
-                ?
-              </button>
-            </div>
-
-            {showTopWordsHelp && (
-              <p className="help-text" title={HELP_TEXTS.topWords(currentRuleset.name)}>
-                {HELP_TEXTS.topWords(currentRuleset.name)}
-              </p>
-            )}
-
-            <div className="words-container top-words-container">
-              {topWords.length > 0 ? (
-                topWords.map(({ word, score, count }) => {
-                  const textContent = `Appears ${count} times. ${score.toFixed(1)}x more frequent than in normalized ruleset.`;
-                  const isSelected = selectedTopWord === word;
-
-                  return (
-                    <span
-                      key={word}
-                      title={textContent}
-                      onClick={() => setSelectedTopWord(isSelected ? null : word)}
-                      className={`word-badge help-cursor ${isSelected ? 'selected-badge' : ''}`}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <span>{word}</span>
-                      <span className="count-pill">{count}</span>
+              <div className="header-container">
+                <div>
+                  <h2 className="title-primary">{currentRuleset.name}</h2>
+                  {akaListWords.length > 0 && (
+                    <p className="aka-subtitle">
+                      aka{' '}
+                      {akaListWords
+                        .map((word) => `${word.charAt(0).toUpperCase() + word.slice(1)} Nomic`)
+                        .join(' aka ') + ' 😉'}
+                    </p>
+                  )}
+                </div>
+                <div className="header-links">
+                  {currentRuleset.category === 'Templates' ? (
+                    <span className="template-badge">
+                      Template
                     </span>
-                  );
-                })
-              ) : (
-                <span className="empty-words-text">No top words found.</span>
-              )}
-            </div>
+                  ) : (
+                    currentRuleset.homeUrl !== '#' && (
+                      <a href={currentRuleset.homeUrl} target="_blank" rel="noreferrer" className="external-link">
+                        View Game ↗
+                      </a>
+                    )
+                  )}
 
-            {selectedTopWord && (() => {
-              const activeItem = topWords.find((item) => item.word === selectedTopWord);
-              if (!activeItem) return null;
-              const detailText = `Appears ${activeItem.count} times. ${activeItem.score.toFixed(1)}x more frequent than in normalized ruleset.`;
+                  {currentRuleset.linkUrl !== '#' && (
+                    <a href={currentRuleset.linkUrl} target="_blank" rel="noreferrer" className="external-link">
+                      View Ruleset ↗
+                    </a>
+                  )}
+                </div>
+              </div>
 
-              return (
-                <div
-                  className="help-text"
-                  title={detailText}
-                  style={{ marginTop: '12px', display: 'flex', alignItems: 'center' }}
-                >
-                  <span>
-                    <strong>{activeItem.word}:</strong> {detailText}
-                  </span>
+              <div className="card">
+                <div className="section-header">
+                  <h3>Top Words in Ruleset</h3>
                   <button
-                    onClick={() => setSelectedTopWord(null)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
+                    onClick={() => setShowTopWordsHelp(!showTopWordsHelp)}
+                    className="help-button"
+                    title={HELP_TEXTS.topWords(currentRuleset.name)}
                   >
-                    ✕
+                    ?
                   </button>
                 </div>
-              );
-            })()}
-          </div>
 
-          <div className="metrics-grid">
-            <div className="metric-card">
-              <div className="metric-label">Ruleset size</div>
-              <div className="metric-value">{currentMetrics.words.toLocaleString()} words</div>
-            </div>
-            <div className="metric-card">
-              <div className="metric-label">Unique words</div>
-              <div className="metric-value highlight">
-                {currentMetrics.wordSet.size.toLocaleString()}
-              </div>
-            </div>
-          </div>
+                {showTopWordsHelp && (
+                  <p className="help-text" title={HELP_TEXTS.topWords(currentRuleset.name)}>
+                    {HELP_TEXTS.topWords(currentRuleset.name)}
+                  </p>
+                )}
 
-          <div className="card">
-            <h3 style={{ marginTop: 0 }}>Similarity to Other Nomics</h3>
+                <div className="words-container top-words-container">
+                  {topWords.length > 0 ? (
+                    topWords.map(({ word, score, count }) => {
+                      const textContent = `Appears ${count} times. ${score.toFixed(1)}x more frequent than in normalized ruleset.`;
+                      const isSelected = selectedTopWord === word;
 
-            <div className="comparisons-list">
-              {comparisons.map(({ ruleset, score, sizeText, error }) => (
-                <div key={ruleset.id} className="comparison-item">
-                  <div className="comparison-header">
-                    <span className="comparison-title">{ruleset.name}</span>
-                    <span>{score !== null ? `${score.toFixed(1)}% match` : error}</span>
-                  </div>
-
-                  {score !== null && (
-                    <div className="progress-bar-track">
-                      <div
-                        className="progress-bar-fill"
-                        style={{ '--progress-width': `${Math.min(100, Math.max(0, score))}%` } as React.CSSProperties}
-                      />
-                    </div>
-                  )}
-
-                  {score !== null && sizeText !== null && (
-                    <div className="comparison-size">
-                      Size: {sizeText}
-                    </div>
+                      return (
+                        <span
+                          key={word}
+                          title={textContent}
+                          onClick={() => setSelectedTopWord(isSelected ? null : word)}
+                          className={`word-badge help-cursor ${isSelected ? 'selected-badge' : ''}`}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <span>{word}</span>
+                          <span className="count-pill">{count}</span>
+                        </span>
+                      );
+                    })
+                  ) : (
+                    <span className="empty-words-text">No top words found.</span>
                   )}
                 </div>
-              ))}
-            </div>
-          </div>
 
-          <div className="card">
-            <div className="section-header">
-              <h3>Unique Words in Ruleset</h3>
+                {selectedTopWord && (() => {
+                  const activeItem = topWords.find((item) => item.word === selectedTopWord);
+                  if (!activeItem) return null;
+                  const detailText = `Appears ${activeItem.count} times. ${activeItem.score.toFixed(1)}x more frequent than in normalized ruleset.`;
+
+                  return (
+                    <div
+                      className="help-text"
+                      title={detailText}
+                      style={{ marginTop: '12px', display: 'flex', alignItems: 'center' }}
+                    >
+                      <span>
+                        <strong>{activeItem.word}:</strong> {detailText}
+                      </span>
+                      <button
+                        onClick={() => setSelectedTopWord(null)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              <div className="metrics-grid">
+                <div className="metric-card">
+                  <div className="metric-label">Ruleset size</div>
+                  <div className="metric-value">{currentMetrics.words.toLocaleString()} words</div>
+                </div>
+                <div className="metric-card">
+                  <div className="metric-label">Unique words</div>
+                  <div className="metric-value highlight">
+                    {currentMetrics.wordSet.size.toLocaleString()}
+                  </div>
+                </div>
+              </div>
+
+              <div className="card">
+                <h3 style={{ marginTop: 0 }}>Similarity to Other Nomics</h3>
+
+                <div className="comparisons-list">
+                  {comparisons.map(({ ruleset, score, sizeText, error }) => (
+                    <div key={ruleset.id} className="comparison-item">
+                      <div className="comparison-header">
+                        <span className="comparison-title">{ruleset.name}</span>
+                        <span>{score !== null ? `${score.toFixed(1)}% match` : error}</span>
+                      </div>
+
+                      {score !== null && (
+                        <div className="progress-bar-track">
+                          <div
+                            className="progress-bar-fill"
+                            style={{ '--progress-width': `${Math.min(100, Math.max(0, score))}%` } as React.CSSProperties}
+                          />
+                        </div>
+                      )}
+
+                      {score !== null && sizeText !== null && (
+                        <div className="comparison-size">
+                          Size: {sizeText}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="card">
+                <div className="section-header">
+                  <h3>Unique Words in Ruleset</h3>
+                  <button
+                    onClick={() => setShowUniqueWordsHelp(!showUniqueWordsHelp)}
+                    className="help-button"
+                    title={HELP_TEXTS.uniqueWords(currentRuleset.name)}
+                  >
+                    ?
+                  </button>
+                </div>
+
+                {showUniqueWordsHelp && (
+                  <p className="help-text" title={HELP_TEXTS.uniqueWords(currentRuleset.name)}>
+                    {HELP_TEXTS.uniqueWords(currentRuleset.name)}
+                  </p>
+                )}
+
+                <div className="words-container unique-words-container">
+                  {uniqueWordsWithCounts.length > 0 ? (
+                    uniqueWordsWithCounts.map(({ word, count }) => (
+                      <span key={word} className="word-badge">
+                        <span>{word}</span>
+                        <span className="count-pill">{count}</span>
+                      </span>
+                    ))
+                  ) : (
+                    <span className="empty-words-text">No unique words found.</span>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <button
+                  onClick={() => setShowRawText(!showRawText)}
+                  className="preview-toggle-button"
+                >
+                  📄 {showRawText ? 'Hide' : 'Show'} Ruleset Preview
+                </button>
+
+                {showRawText && (
+                  <pre className="raw-text-preview">
+                    {currentMetrics.content}
+                  </pre>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="card" style={{ marginTop: '24px' }}>
+            <div className="header-links" style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '16px' }}>
+              <a href="https://nomic.fandom.com/wiki/Leaderboards" target="_blank" rel="noreferrer" className="external-link">
+                More games, more comparisons and Fandom pages ↗
+              </a>
+              <a href="https://kiako.me/nomic/" target="_blank" rel="noreferrer" className="external-link">
+                Introduction to Nomic ↗
+              </a>
+            </div>
+
+            <div className="header-links" style={{ marginBottom: '16px' }}>
+              <a href="https://github.com/cieok/nomicinfra" target="_blank" rel="noreferrer" className="external-link">
+                GitHub repository of this page ↗
+              </a>
+            </div>
+
+            <div style={{ marginTop: '12px', textAlign: 'right' }}>
               <button
-                onClick={() => setShowUniqueWordsHelp(!showUniqueWordsHelp)}
-                className="help-button"
-                title={HELP_TEXTS.uniqueWords(currentRuleset.name)}
+                onClick={handleExportTs}
+                aria-label="Export"
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'rgba(0, 0, 0, 0.08)',
+                  fontSize: '0.7rem',
+                  cursor: 'pointer',
+                  padding: '2px 4px',
+                  outline: 'none',
+                  boxShadow: 'none',
+                }}
               >
-                ?
+                .
               </button>
             </div>
-
-            {showUniqueWordsHelp && (
-              <p className="help-text" title={HELP_TEXTS.uniqueWords(currentRuleset.name)}>
-                {HELP_TEXTS.uniqueWords(currentRuleset.name)}
-              </p>
-            )}
-
-            <div className="words-container unique-words-container">
-              {uniqueWordsWithCounts.length > 0 ? (
-                uniqueWordsWithCounts.map(({ word, count }) => (
-                  <span key={word} className="word-badge">
-                    <span>{word}</span>
-                    <span className="count-pill">{count}</span>
-                  </span>
-                ))
-              ) : (
-                <span className="empty-words-text">No unique words found.</span>
-              )}
-            </div>
           </div>
-
-          <div>
-            <button
-              onClick={() => setShowRawText(!showRawText)}
-              className="preview-toggle-button"
-            >
-              📄 {showRawText ? 'Hide' : 'Show'} Ruleset Preview
-            </button>
-
-            {showRawText && (
-              <pre className="raw-text-preview">
-                {currentMetrics.content}
-              </pre>
-            )}
-          </div>
-        </div>
-      )}
-
-      <div className="card" style={{ marginTop: '24px' }}>
-        <div className="header-links" style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '16px' }}>
-          <a href="https://nomic.fandom.com/wiki/Leaderboards" target="_blank" rel="noreferrer" className="external-link">
-            More games, more comparisons and Fandom pages ↗
-          </a>
-          <a href="https://kiako.me/nomic/" target="_blank" rel="noreferrer" className="external-link">
-            Introduction to Nomic ↗
-          </a>
-        </div>
-
-        <div className="header-links" style={{ marginBottom: '16px' }}>
-          <a href="https://github.com/cieok/nomicinfra" target="_blank" rel="noreferrer" className="external-link">
-            GitHub repository of this page ↗
-          </a>
-        </div>
-
-        <div style={{ marginTop: '12px', textAlign: 'right' }}>
-          <button
-            onClick={handleExportTs}
-            aria-label="Export"
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: 'rgba(0, 0, 0, 0.08)',
-              fontSize: '0.7rem',
-              cursor: 'pointer',
-              padding: '2px 4px',
-              outline: 'none',
-              boxShadow: 'none',
-            }}
-          >
-            .
-          </button>
-        </div>
+        </main>
       </div>
     </div>
   );

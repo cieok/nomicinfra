@@ -1,9 +1,80 @@
 /* Container & Headers */
 .app-container {
-  max-width: 1000px;
+  max-width: 1200px; /* Expanded slightly to accommodate the side navigation */
   margin: 2rem auto;
   font-family: sans-serif;
   padding: 0 1rem;
+}
+
+/* Layout Structure */
+.layout-body {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+  margin-top: 1.5rem;
+}
+
+/* Sidebar Navigation */
+.sidebar-nav {
+  width: 220px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  position: sticky;
+  top: 2rem;
+}
+
+.nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.group-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  padding-left: 0.5rem;
+}
+
+.nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.nav-item {
+  width: 100%;
+  text-align: left;
+  padding: 0.6rem 0.85rem;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #64748b;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.nav-item:hover {
+  background-color: #f1f5f9;
+  color: #1e293b;
+}
+
+.nav-item.active {
+  background-color: #eff6ff;
+  color: #1d4ed8;
+  font-weight: bold;
+  border-color: #bfdbfe;
+}
+
+/* Main Content Wrapper */
+.main-content {
+  flex: 1;
+  min-width: 0;
 }
 
 .title-primary {
@@ -19,34 +90,6 @@
 
 .error-text {
   color: #dc2626;
-}
-
-/* Tabs Navigation */
-.nav-tabs {
-  display: flex;
-  gap: 0.5rem;
-  border-bottom: 2px solid #e2e8f0;
-  margin-bottom: 1.5rem;
-  flex-wrap: wrap;
-}
-
-.tab-button {
-  padding: 0.75rem 1.25rem;
-  border: none;
-  border-bottom: 3px solid transparent;
-  background: transparent;
-  font-weight: normal;
-  color: #64748b;
-  cursor: pointer;
-  font-size: 1rem;
-  border-radius: 6px 6px 0 0;
-}
-
-.tab-button.active {
-  border-bottom-color: #2563eb;
-  background-color: #eff6ff;
-  font-weight: bold;
-  color: #1d4ed8;
 }
 
 /* Header & Links */
@@ -73,7 +116,7 @@
   background: #fff;
   border: 1px solid #e2e8f0;
   padding: 1.5rem;
-  borderRadius: 8px;
+  border-radius: 8px;
   margin-bottom: 2rem;
 }
 
@@ -438,5 +481,17 @@
   &::after {
     right: 0;
     border-right-color: var(--border);
+  }
+}
+
+/* Responsive fallback for narrow devices */
+@media (max-width: 768px) {
+  .layout-body {
+    flex-direction: column;
+  }
+
+  .sidebar-nav {
+    width: 100%;
+    position: static;
   }
 }
