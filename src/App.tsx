@@ -36,7 +36,6 @@ const RULESETS: RulesetConfig[] = [
   },
 ];
 
-// Structural, procedural, or meta words strictly forbidden from appearing in AKA titles
 const BANNED_AKA_WORDS = new Set([
   'decision',
   'decisions',
@@ -47,6 +46,13 @@ const BANNED_AKA_WORDS = new Set([
   'periods',
   'moderator',
 ]);
+
+const HELP_TEXTS = {
+  topWords: (name: string) =>
+    `Number next to the word is a count. Words ordered by how disproportionately often they appear in ${name} ruleset relative to the other rulesets (normalized by total words).`,
+  uniqueWords: (name: string) =>
+    `Words that appear in ${name} ruleset but do not appear in any other active ruleset, ordered by occurrences.`,
+};
 
 interface MetricData {
   words: number;
@@ -85,9 +91,6 @@ function formatSizeComparison(currentWords: number, targetWords: number): string
   }
 }
 
-/**
- * Robust check to see if two words share a common root stem
- */
 function shareCommonStem(w1: string, w2: string): boolean {
   const minLength = Math.min(w1.length, w2.length);
   const prefixLength = Math.min(4, minLength);
@@ -98,9 +101,6 @@ function shareCommonStem(w1: string, w2: string): boolean {
   return w1.includes(w2) || w2.includes(w1);
 }
 
-/**
- * Selects top distinct words guaranteed to exclude banned words and duplicate word roots.
- */
 function getDistinctTopWords(
   topWordsList: { word: string; score: number; count: number }[],
   baseName: string,
@@ -148,7 +148,6 @@ export function App() {
   const [activeTabId, setActiveTabId] = useState<string>(RULESETS[0].id);
   const [showRawText, setShowRawText] = useState<boolean>(false);
   
-  // State toggles for hiding explanations behind question marks
   const [showTopWordsHelp, setShowTopWordsHelp] = useState<boolean>(false);
   const [showUniqueWordsHelp, setShowUniqueWordsHelp] = useState<boolean>(false);
 
@@ -232,7 +231,6 @@ export function App() {
     });
   }, [currentRuleset, currentMetrics, dataMap]);
 
-  // Unique Words list
   const uniqueWordsWithCounts = useMemo(() => {
     if (!currentMetrics || currentMetrics.loading || currentMetrics.error) return [];
 
@@ -259,7 +257,6 @@ export function App() {
     return uniqueList.sort((a, b) => b.count - a.count || a.word.localeCompare(b.word));
   }, [currentRuleset, currentMetrics, dataMap]);
 
-  // Top Words list (Smoothed Relative Frequency)
   const topWords = useMemo(() => {
     if (!currentMetrics || currentMetrics.loading || currentMetrics.error) return [];
 
@@ -305,7 +302,6 @@ export function App() {
     return scoredList.sort((a, b) => b.score - a.score).slice(0, 150);
   }, [currentRuleset, currentMetrics, dataMap]);
 
-  // Derive top 4 distinct words for AKA titles
   const akaListWords = useMemo(() => {
     return getDistinctTopWords(topWords, currentRuleset.name, 4);
   }, [topWords, currentRuleset.name]);
@@ -314,7 +310,6 @@ export function App() {
     <div className="app-container">
       <h1>Nomic games comparison</h1>
 
-      {/* Navigation Tabs */}
       <div className="nav-tabs">
         {RULESETS.map((ruleset) => {
           const isActive = ruleset.id === activeTabId;
@@ -333,7 +328,6 @@ export function App() {
         })}
       </div>
 
-      {/* Main View for Active Nomic */}
       {currentMetrics.loading ? (
         <p>Loading ruleset data...</p>
       ) : currentMetrics.error ? (
@@ -342,7 +336,6 @@ export function App() {
         </p>
       ) : (
         <div>
-          {/* Header Info with AKA Titles */}
           <div className="header-container">
             <div>
               <h2 className="title-primary">{currentRuleset.name}</h2>
@@ -365,23 +358,24 @@ export function App() {
             </div>
           </div>
 
-          {/* Top Words Section */}
           <div className="card">
             <div className="section-header">
               <h3>Top Words in Ruleset</h3>
               <button
                 onClick={() => setShowTopWordsHelp(!showTopWordsHelp)}
                 className="help-button"
-                title="Click to toggle explanation"
+                title={HELP_TEXTS.topWords(currentRuleset.name)}
               >
                 ?
               </button>
             </div>
 
             {showTopWordsHelp && (
-              <p className="help-text">
-                Number next to the word is a count.
-                Words ordered by how disproportionately often they appear in <strong>{currentRuleset.name}</strong> ruleset relative to the other rulesets (normalized by total words).
+              <p 
+                className="help-text"
+                title={HELP_TEXTS.topWords(currentRuleset.name)}
+              >
+                {HELP_TEXTS.topWords(currentRuleset.name)}
               </p>
             )}
 
@@ -407,7 +401,6 @@ export function App() {
             </div>
           </div>
 
-          {/* Core Metrics Totals */}
           <div className="metrics-grid">
             <div className="metric-card">
               <div className="metric-label">Ruleset size</div>
@@ -421,7 +414,6 @@ export function App() {
             </div>
           </div>
 
-          {/* Similarity Analysis Section */}
           <div className="card">
             <h3 style={{ marginTop: 0 }}>Similarity to Other Nomics</h3>
 
@@ -452,22 +444,24 @@ export function App() {
             </div>
           </div>
 
-          {/* Unique Words Section */}
           <div className="card">
             <div className="section-header">
               <h3>Unique Words in Ruleset</h3>
               <button
                 onClick={() => setShowUniqueWordsHelp(!showUniqueWordsHelp)}
                 className="help-button"
-                title="Click to toggle explanation"
+                title={HELP_TEXTS.uniqueWords(currentRuleset.name)}
               >
                 ?
               </button>
             </div>
 
             {showUniqueWordsHelp && (
-              <p className="help-text">
-                Words that appear in <strong>{currentRuleset.name}</strong> ruleset but do not appear in any other active ruleset, ordered by occurrences.
+              <p 
+                className="help-text"
+                title={HELP_TEXTS.uniqueWords(currentRuleset.name)}
+              >
+                {HELP_TEXTS.uniqueWords(currentRuleset.name)}
               </p>
             )}
 
@@ -485,7 +479,6 @@ export function App() {
             </div>
           </div>
 
-          {/* Ruleset Preview Toggle */}
           <div>
             <button
               onClick={() => setShowRawText(!showRawText)}
