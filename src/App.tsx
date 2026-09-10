@@ -271,9 +271,9 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
   const currentRuleset = rulesets.find((r) => r.id === activeTabId) || rulesets[0];
   const currentMetrics = dataMap[currentRuleset?.id];
 
-  const dateColor = useMemo(() => {
-    if (!currentMetrics?.lastModified) return 'inherit';
-    const parsedDate = new Date(currentMetrics.lastModified);
+  const getDateColor = (lastModified?: string) => {
+    if (!lastModified) return 'inherit';
+    const parsedDate = new Date(lastModified);
     if (isNaN(parsedDate.getTime())) return 'inherit';
 
     const diffDays = (new Date().getTime() - parsedDate.getTime()) / (1000 * 3600 * 24);
@@ -294,6 +294,10 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
     }
 
     return `rgb(${r}, ${g}, ${b})`;
+  };
+
+  const dateColor = useMemo(() => {
+    return getDateColor(currentMetrics?.lastModified);
   }, [currentMetrics?.lastModified]);
 
   const comparisons = useMemo(() => {
@@ -309,17 +313,20 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
             ruleset: other,
             score: null,
             sizeText: null,
+            indicatorColor: 'inherit',
             error: otherMetrics?.error || 'Loading...',
           };
         }
 
         const score = calculateJaccardSimilarity(currentMetrics.wordSet, otherMetrics.wordSet);
         const sizeText = formatSizeComparison(currentMetrics.words, otherMetrics.words);
+        const indicatorColor = getDateColor(otherMetrics.lastModified);
 
         return {
           ruleset: other,
           score,
           sizeText,
+          indicatorColor,
           error: null,
         };
       })
@@ -594,7 +601,7 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
 
                 <div className="comparisons-list" style={{ marginTop: '16px' }}>
                   {comparisons.length > 0 ? (
-                    comparisons.map(({ ruleset, score, sizeText, error }) => (
+                    comparisons.map(({ ruleset, score, sizeText, indicatorColor, error }) => (
                       <div key={ruleset.id} className="comparison-item">
                         <div className="comparison-header">
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -626,10 +633,11 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
                               <span
                                 style={{
                                   fontSize: '0.75rem',
-                                  color: 'var(--text-secondary, #666)',
-                                  background: 'rgba(0,0,0,0.05)',
+                                  color: indicatorColor !== 'inherit' ? indicatorColor : 'var(--text-secondary, #666)',
+                                  background: indicatorColor !== 'inherit' ? `${indicatorColor}15` : 'rgba(0,0,0,0.05)',
                                   padding: '2px 6px',
                                   borderRadius: '4px',
+                                  fontWeight: indicatorColor !== 'inherit' ? 600 : 400,
                                 }}
                               >
                                 Game
