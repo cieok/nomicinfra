@@ -273,27 +273,30 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
   const comparisons = useMemo(() => {
     if (!currentMetrics || currentMetrics.loading || currentMetrics.error) return [];
 
-    return rulesets.filter((r) => r.id !== currentRuleset.id).map((other) => {
-      const otherMetrics = dataMap[other.id];
-      if (!otherMetrics || otherMetrics.loading || otherMetrics.error) {
+    return rulesets
+      .filter((r) => r.id !== currentRuleset.id)
+      .map((other) => {
+        const otherMetrics = dataMap[other.id];
+        if (!otherMetrics || otherMetrics.loading || otherMetrics.error) {
+          return {
+            ruleset: other,
+            score: null,
+            sizeText: null,
+            error: otherMetrics?.error || 'Loading...',
+          };
+        }
+
+        const score = calculateJaccardSimilarity(currentMetrics.wordSet, otherMetrics.wordSet);
+        const sizeText = formatSizeComparison(currentMetrics.words, otherMetrics.words);
+
         return {
           ruleset: other,
-          score: null,
-          sizeText: null,
-          error: otherMetrics?.error || 'Loading...',
+          score,
+          sizeText,
+          error: null,
         };
-      }
-
-      const score = calculateJaccardSimilarity(currentMetrics.wordSet, otherMetrics.wordSet);
-      const sizeText = formatSizeComparison(currentMetrics.words, otherMetrics.words);
-
-      return {
-        ruleset: other,
-        score,
-        sizeText,
-        error: null,
-      };
-    });
+      })
+      .sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity));
   }, [currentRuleset, currentMetrics, dataMap, rulesets]);
 
   const uniqueWordsWithCounts = useMemo(() => {
