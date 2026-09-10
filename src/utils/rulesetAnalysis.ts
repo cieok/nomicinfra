@@ -15,6 +15,7 @@ export interface MetricData {
   wordCounts: Map<string, number>;
   loading: boolean;
   error: string | null;
+  lastModified?: string | null;
 }
 
 export const INITIAL_RULESETS: RulesetConfig[] = [
@@ -127,6 +128,21 @@ export async function fetchMetrics(ruleset: RulesetConfig): Promise<Omit<MetricD
   const res = await fetch(ruleset.fetchUrl);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
+  // Extract HTTP Last-Modified header for remote fetches
+  const rawLastModified = res.headers.get('last-modified');
+  let lastModified: string | null = null;
+
+  if (rawLastModified) {
+    const parsedDate = new Date(rawLastModified);
+    if (!isNaN(parsedDate.getTime())) {
+      lastModified = parsedDate.toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      });
+    }
+  }
+
   let text = '';
   if (ruleset.isJsonApi) {
     const json = await res.json();
@@ -153,5 +169,6 @@ export async function fetchMetrics(ruleset: RulesetConfig): Promise<Omit<MetricD
     content: text,
     wordSet: new Set(tokens),
     wordCounts,
+    lastModified,
   };
 }

@@ -537,10 +537,16 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
                     {currentMetrics.wordSet.size.toLocaleString()}
                   </div>
                 </div>
+                {currentRuleset.category !== 'Templates' && currentMetrics.lastModified && (
+                  <div className="metric-card">
+                    <div className="metric-label">Last changed</div>
+                    <div className="metric-value">{currentMetrics.lastModified}</div>
+                  </div>
+                )}
               </div>
 
               <div className="card">
-                <div className="section-header" style={{justifyContent: 'space-between', gap: '8px' }}>
+                <div className="section-header" style={{ justifyContent: 'space-between', gap: '8px' }}>
                   <h3 style={{ margin: 0 }}>Similarity to Other Nomics</h3>
                   <div style={{ display: 'flex', gap: '4px', background: 'rgba(0,0,0,0.05)', padding: '3px', borderRadius: '6px' }}>
                     {(['All', 'Games', 'Templates'] as const).map((filter) => (
