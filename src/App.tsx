@@ -83,6 +83,7 @@ export function App() {
   const [showTopWordsHelp, setShowTopWordsHelp] = useState<boolean>(false);
   const [showUniqueWordsHelp, setShowUniqueWordsHelp] = useState<boolean>(false);
   const [selectedTopWord, setSelectedTopWord] = useState<string | null>(null);
+  const [similarityFilter, setSimilarityFilter] = useState<'All' | 'Games' | 'Templates'>('All');
 
   // Helper function to handle switching active rulesets (resets view states)
   const handleSelectRuleset = (id: string) => {
@@ -282,6 +283,7 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
 
     return rulesets
       .filter((r) => r.id !== currentRuleset.id)
+      .filter((r) => similarityFilter === 'All' || r.category === similarityFilter)
       .map((other) => {
         const otherMetrics = dataMap[other.id];
         if (!otherMetrics || otherMetrics.loading || otherMetrics.error) {
@@ -304,7 +306,7 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
         };
       })
       .sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity));
-  }, [currentRuleset, currentMetrics, dataMap, rulesets]);
+  }, [currentRuleset, currentMetrics, dataMap, rulesets, similarityFilter]);
 
   const uniqueWordsWithCounts = useMemo(() => {
     if (!currentMetrics || currentMetrics.loading || currentMetrics.error) return [];
@@ -538,70 +540,98 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
               </div>
 
               <div className="card">
-                <h3 style={{ marginTop: 0 }}>Similarity to Other Nomics</h3>
+                <div className="section-header" style={{justifyContent: 'space-between', gap: '8px' }}>
+                  <h3 style={{ margin: 0 }}>Similarity to Other Nomics</h3>
+                  <div style={{ display: 'flex', gap: '4px', background: 'rgba(0,0,0,0.05)', padding: '3px', borderRadius: '6px' }}>
+                    {(['All', 'Games', 'Templates'] as const).map((filter) => (
+                      <button
+                        key={filter}
+                        onClick={() => setSimilarityFilter(filter)}
+                        style={{
+                          background: similarityFilter === filter ? '#fff' : 'transparent',
+                          border: 'none',
+                          borderRadius: '4px',
+                          padding: '4px 10px',
+                          fontSize: '0.8rem',
+                          fontWeight: similarityFilter === filter ? 600 : 400,
+                          color: similarityFilter === filter ? 'var(--text-primary, #111)' : 'var(--text-secondary, #666)',
+                          cursor: 'pointer',
+                          boxShadow: similarityFilter === filter ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        {filter}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-                <div className="comparisons-list">
-                  {comparisons.map(({ ruleset, score, sizeText, error }) => (
-                    <div key={ruleset.id} className="comparison-item">
-                      <div className="comparison-header">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <button
-                            onClick={() => handleSelectRuleset(ruleset.id)}
-                            className="comparison-title-button"
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              padding: 0,
-                              font: 'inherit',
-                              color: 'inherit',
-                              fontWeight: 600,
-                              cursor: 'pointer',
-                              textDecoration: 'underline',
-                              textDecorationColor: 'transparent',
-                              transition: 'text-decoration-color 0.15s ease',
-                            }}
-                            onMouseEnter={(e) => (e.currentTarget.style.textDecorationColor = 'currentColor')}
-                            onMouseLeave={(e) => (e.currentTarget.style.textDecorationColor = 'transparent')}
-                          >
-                            {ruleset.name}
-                          </button>
-                          {ruleset.category === 'Templates' ? (
-                            <span className="template-badge" style={{ fontSize: '0.75rem', padding: '2px 6px' }}>
-                              Template
-                            </span>
-                          ) : (
-                            <span
+                <div className="comparisons-list" style={{ marginTop: '16px' }}>
+                  {comparisons.length > 0 ? (
+                    comparisons.map(({ ruleset, score, sizeText, error }) => (
+                      <div key={ruleset.id} className="comparison-item">
+                        <div className="comparison-header">
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <button
+                              onClick={() => handleSelectRuleset(ruleset.id)}
+                              className="comparison-title-button"
                               style={{
-                                fontSize: '0.75rem',
-                                color: 'var(--text-secondary, #666)',
-                                background: 'rgba(0,0,0,0.05)',
-                                padding: '2px 6px',
-                                borderRadius: '4px',
+                                background: 'none',
+                                border: 'none',
+                                padding: 0,
+                                font: 'inherit',
+                                color: 'inherit',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                textDecoration: 'underline',
+                                textDecorationColor: 'transparent',
+                                transition: 'text-decoration-color 0.15s ease',
                               }}
+                              onMouseEnter={(e) => (e.currentTarget.style.textDecorationColor = 'currentColor')}
+                              onMouseLeave={(e) => (e.currentTarget.style.textDecorationColor = 'transparent')}
                             >
-                              Game
-                            </span>
-                          )}
+                              {ruleset.name}
+                            </button>
+                            {ruleset.category === 'Templates' ? (
+                              <span className="template-badge" style={{ fontSize: '0.75rem', padding: '2px 6px' }}>
+                                Template
+                              </span>
+                            ) : (
+                              <span
+                                style={{
+                                  fontSize: '0.75rem',
+                                  color: 'var(--text-secondary, #666)',
+                                  background: 'rgba(0,0,0,0.05)',
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                }}
+                              >
+                                Game
+                              </span>
+                            )}
+                          </div>
+                          <span>{score !== null ? `${score.toFixed(1)}% match` : error}</span>
                         </div>
-                        <span>{score !== null ? `${score.toFixed(1)}% match` : error}</span>
+
+                        {score !== null && (
+                          <div className="progress-bar-track">
+                            <div
+                              className="progress-bar-fill"
+                              style={{ '--progress-width': `${Math.min(100, Math.max(0, score))}%` } as React.CSSProperties}
+                            />
+                          </div>
+                        )}
+
+                        {score !== null && sizeText !== null && (
+                          <div className="comparison-size">
+                            Size: {sizeText}
+                          </div>
+                        )}
                       </div>
-
-                      {score !== null && (
-                        <div className="progress-bar-track">
-                          <div
-                            className="progress-bar-fill"
-                            style={{ '--progress-width': `${Math.min(100, Math.max(0, score))}%` } as React.CSSProperties}
-                          />
-                        </div>
-                      )}
-
-                      {score !== null && sizeText !== null && (
-                        <div className="comparison-size">
-                          Size: {sizeText}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    <span className="empty-words-text">No matching rulesets found for this filter.</span>
+                  )}
                 </div>
               </div>
 
