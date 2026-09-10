@@ -16,6 +16,7 @@ export interface MetricData {
   loading: boolean;
   error: string | null;
   lastModified?: string | null;
+  rawDate?: Date | null;
 }
 
 export const INITIAL_RULESETS: RulesetConfig[] = [
@@ -29,7 +30,7 @@ export const INITIAL_RULESETS: RulesetConfig[] = [
   {
     id: 'blognomic',
     name: 'BlogNomic',
-    fetchUrl: 'https://wiki.blognomic.com/api.php?action=parse&page=Ruleset&format=json&prop=wikitext&origin=*',
+    fetchUrl: 'https://wiki.blognomic.com/api.php?action=query&titles=Ruleset&prop=revisions&rvprop=content|timestamp&rvslots=main&format=json&origin=*',
     linkUrl: 'https://wiki.blognomic.com/index.php?title=Ruleset',
     homeUrl: 'https://blognomic.com/',
     isJsonApi: true,
@@ -37,7 +38,7 @@ export const INITIAL_RULESETS: RulesetConfig[] = [
   {
     id: 'infinite',
     name: 'Infinite Nomic',
-    fetchUrl: 'https://infinite.nomic.space/wiki/api.php?action=parse&page=Metaruleset&format=json&prop=wikitext&origin=*',
+    fetchUrl: 'https://infinite.nomic.space/wiki/api.php?action=query&titles=Metaruleset&prop=revisions&rvprop=content|timestamp&rvslots=main&format=json&origin=*',
     linkUrl: 'https://infinite.nomic.space/wiki/index.php?title=Metaruleset',
     homeUrl: 'https://infinite.nomic.space/',
     isJsonApi: true,
@@ -124,31 +125,67 @@ export function getDistinctTopWords(
   return result;
 }
 
+export function calculateRulesetHealth(date: Date | null | undefined): {
+  percentage: number;
+  color: string;
+  daysAgo: number;
+} | null {
+  if (!date) return null;
+
+  const now = new Date();
+  const diffTime = Math.max(0, now.getTime() - date.getTime());
+  const daysAgo = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+  const maxDays = 28;
+  const factor = Math.min(1, daysAgo / maxDays); // 0.0 (fresh) to 1.0 (28+ days old)
+
+  // Linear RGB interpolation from Green rgb(34, 197, 94) to Red rgb(239, 68, 68)
+  const r = Math.round(34 + (239 - 34) * factor);
+  const g = Math.round(197 - (197 - 68) * factor);
+  const b = Math.round(94 - (94 - 68) * factor);
+
+  const color = `rgb(${r}, ${g}, ${b})`;
+  const percentage = Math.max(0, Math.round((1 - factor) * 100));
+
+  return { percentage, color, daysAgo };
+}
+
 export async function fetchMetrics(ruleset: RulesetConfig): Promise<Omit<MetricData, 'loading' | 'error'>> {
   const res = await fetch(ruleset.fetchUrl);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-  // Extract HTTP Last-Modified header for remote fetches
-  const rawLastModified = res.headers.get('last-modified');
-  let lastModified: string | null = null;
+  let text = '';
+  let rawDateString: string | null = null;
 
-  if (rawLastModified) {
-    const parsedDate = new Date(rawLastModified);
+  if (ruleset.isJsonApi) {
+    const json = await res.json();
+    const pages = json?.query?.pages;
+    if (pages) {
+      const pageKey = Object.keys(pages)[0];
+      const pageData = pages[pageKey];
+      const revision = pageData?.revisions?.[0];
+
+      text = revision?.slots?.main?.['*'] || revision?.['*'] || '';
+      rawDateString = revision?.timestamp || null;
+    }
+  } else {
+    text = await res.text();
+    rawDateString = res.headers.get('last-modified');
+  }
+
+  let lastModified: string | null = null;
+  let rawDate: Date | null = null;
+
+  if (rawDateString && ruleset.id !== 'infinite') {
+    const parsedDate = new Date(rawDateString);
     if (!isNaN(parsedDate.getTime())) {
+      rawDate = parsedDate;
       lastModified = parsedDate.toLocaleDateString(undefined, {
         year: 'numeric',
         month: 'short',
         day: 'numeric',
       });
     }
-  }
-
-  let text = '';
-  if (ruleset.isJsonApi) {
-    const json = await res.json();
-    text = json?.parse?.wikitext?.['*'] || '';
-  } else {
-    text = await res.text();
   }
 
   const tokens = text
@@ -170,5 +207,6 @@ export async function fetchMetrics(ruleset: RulesetConfig): Promise<Omit<MetricD
     wordSet: new Set(tokens),
     wordCounts,
     lastModified,
+    rawDate,
   };
 }

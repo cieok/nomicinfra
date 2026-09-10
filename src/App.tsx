@@ -12,17 +12,15 @@ import {
 } from './utils/rulesetAnalysis';
 import { PRECOMPUTED_RULESETS } from './precomputedRulesets';
 
-// Interface extending ruleset configuration with explicit grouping
 export interface CategorizedRulesetConfig extends RulesetConfig {
   category: 'Templates' | 'Games';
 }
 
-// Convert precomputed items into RulesetConfig and MetricData formats
 function buildPrecomputedState() {
   const precomputedRulesets: CategorizedRulesetConfig[] = PRECOMPUTED_RULESETS.map((p) => ({
     id: p.id,
     name: p.name,
-    fetchUrl: './', // Dummy path since content is pre-loaded
+    fetchUrl: './',
     linkUrl: p.linkUrl,
     homeUrl: p.homeUrl,
     category: 'Templates',
@@ -49,7 +47,6 @@ export function App() {
     const { precomputedRulesets } = buildPrecomputedState();
     const precomputedIds = new Set(precomputedRulesets.map((r) => r.id));
 
-    // Initial fetched rulesets default to Games
     const filteredInitial: CategorizedRulesetConfig[] = INITIAL_RULESETS
       .filter((r) => !precomputedIds.has(r.id))
       .map((r) => ({ ...r, category: 'Games' }));
@@ -85,14 +82,12 @@ export function App() {
   const [selectedTopWord, setSelectedTopWord] = useState<string | null>(null);
   const [similarityFilter, setSimilarityFilter] = useState<'All' | 'Games' | 'Templates'>('All');
 
-  // Helper function to handle switching active rulesets (resets view states)
   const handleSelectRuleset = (id: string) => {
     setActiveTabId(id);
     setShowRawText(false);
     setSelectedTopWord(null);
   };
 
-  // Load imported template rulesets dynamically from the /templates directory
   useEffect(() => {
     let isMounted = true;
 
@@ -138,7 +133,7 @@ export function App() {
             fetchUrl: objectUrl,
             linkUrl,
             homeUrl: '#',
-            category: 'Templates', // Local template files grouped under Templates
+            category: 'Templates',
           });
 
           importedDataMapEntries.push([
@@ -190,7 +185,6 @@ export function App() {
     };
   }, []);
 
-  // Group rulesets into categorized sets
   const groupedRulesets = useMemo(() => {
     return {
       Games: rulesets.filter((r) => r.category === 'Games'),
@@ -198,7 +192,6 @@ export function App() {
     };
   }, [rulesets]);
 
-  // Fetch metrics only for rulesets that aren't loaded yet
   useEffect(() => {
     rulesets.forEach((ruleset) => {
       if (dataMap[ruleset.id] && !dataMap[ruleset.id].loading && !dataMap[ruleset.id].error) {
@@ -277,6 +270,31 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
 
   const currentRuleset = rulesets.find((r) => r.id === activeTabId) || rulesets[0];
   const currentMetrics = dataMap[currentRuleset?.id];
+
+  const dateColor = useMemo(() => {
+    if (!currentMetrics?.lastModified) return 'inherit';
+    const parsedDate = new Date(currentMetrics.lastModified);
+    if (isNaN(parsedDate.getTime())) return 'inherit';
+
+    const diffDays = (new Date().getTime() - parsedDate.getTime()) / (1000 * 3600 * 24);
+    const clampedDays = Math.max(0, Math.min(60, diffDays));
+
+    let r: number, g: number, b: number;
+
+    if (clampedDays <= 30) {
+      const factor = clampedDays / 30;
+      r = Math.round(46 + factor * (237 - 46));
+      g = Math.round(125 + factor * (108 - 125));
+      b = Math.round(50 + factor * (2 - 50));
+    } else {
+      const factor = (clampedDays - 30) / 30;
+      r = Math.round(237 + factor * (211 - 237));
+      g = Math.round(108 + factor * (47 - 108));
+      b = Math.round(2 + factor * (47 - 2));
+    }
+
+    return `rgb(${r}, ${g}, ${b})`;
+  }, [currentMetrics?.lastModified]);
 
   const comparisons = useMemo(() => {
     if (!currentMetrics || currentMetrics.loading || currentMetrics.error) return [];
@@ -540,7 +558,9 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
                 {currentRuleset.category !== 'Templates' && currentMetrics.lastModified && (
                   <div className="metric-card">
                     <div className="metric-label">Last changed</div>
-                    <div className="metric-value">{currentMetrics.lastModified}</div>
+                    <div className="metric-value" style={{ color: dateColor, fontWeight: 600 }}>
+                      {currentMetrics.lastModified}
+                    </div>
                   </div>
                 )}
               </div>
