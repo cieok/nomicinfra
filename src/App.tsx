@@ -462,6 +462,14 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
                         .join(' aka ') + ' 😉'}
                     </p>
                   )}
+                  {currentRuleset.category !== 'Templates' && currentMetrics.lastModified && (
+                    <p className="last-changed-subtitle" style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary, #666)' }}>
+                      Last changed:{' '}
+                      <span style={{ color: dateColor, fontWeight: 600 }}>
+                        {currentMetrics.lastModified}
+                      </span>
+                    </p>
+                  )}
                 </div>
                 <div className="header-links">
                   {currentRuleset.category === 'Templates' ? (
@@ -562,14 +570,6 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
                     {currentMetrics.wordSet.size.toLocaleString()}
                   </div>
                 </div>
-                {currentRuleset.category !== 'Templates' && currentMetrics.lastModified && (
-                  <div className="metric-card">
-                    <div className="metric-label">Last changed</div>
-                    <div className="metric-value" style={{ color: dateColor, fontWeight: 600 }}>
-                      {currentMetrics.lastModified}
-                    </div>
-                  </div>
-                )}
               </div>
 
               <div className="card">
