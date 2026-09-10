@@ -84,6 +84,13 @@ export function App() {
   const [showUniqueWordsHelp, setShowUniqueWordsHelp] = useState<boolean>(false);
   const [selectedTopWord, setSelectedTopWord] = useState<string | null>(null);
 
+  // Helper function to handle switching active rulesets (resets view states)
+  const handleSelectRuleset = (id: string) => {
+    setActiveTabId(id);
+    setShowRawText(false);
+    setSelectedTopWord(null);
+  };
+
   // Load imported template rulesets dynamically from the /templates directory
   useEffect(() => {
     let isMounted = true;
@@ -394,11 +401,7 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
                     return (
                       <button
                         key={ruleset.id}
-                        onClick={() => {
-                          setActiveTabId(ruleset.id);
-                          setShowRawText(false);
-                          setSelectedTopWord(null);
-                        }}
+                        onClick={() => handleSelectRuleset(ruleset.id)}
                         className={`nav-item ${isActive ? 'active' : ''}`}
                       >
                         {ruleset.name}
@@ -541,7 +544,45 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
                   {comparisons.map(({ ruleset, score, sizeText, error }) => (
                     <div key={ruleset.id} className="comparison-item">
                       <div className="comparison-header">
-                        <span className="comparison-title">{ruleset.name}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <button
+                            onClick={() => handleSelectRuleset(ruleset.id)}
+                            className="comparison-title-button"
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              padding: 0,
+                              font: 'inherit',
+                              color: 'inherit',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              textDecoration: 'underline',
+                              textDecorationColor: 'transparent',
+                              transition: 'text-decoration-color 0.15s ease',
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.textDecorationColor = 'currentColor')}
+                            onMouseLeave={(e) => (e.currentTarget.style.textDecorationColor = 'transparent')}
+                          >
+                            {ruleset.name}
+                          </button>
+                          {ruleset.category === 'Templates' ? (
+                            <span className="template-badge" style={{ fontSize: '0.75rem', padding: '2px 6px' }}>
+                              Template
+                            </span>
+                          ) : (
+                            <span
+                              style={{
+                                fontSize: '0.75rem',
+                                color: 'var(--text-secondary, #666)',
+                                background: 'rgba(0,0,0,0.05)',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                              }}
+                            >
+                              Game
+                            </span>
+                          )}
+                        </div>
                         <span>{score !== null ? `${score.toFixed(1)}% match` : error}</span>
                       </div>
 
