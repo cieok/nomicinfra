@@ -16,6 +16,27 @@ export interface CategorizedRulesetConfig extends RulesetConfig {
   category: 'Templates' | 'Games';
 }
 
+function formatRelativeAge(lastModified?: string | null): string | null {
+  if (!lastModified) return null;
+  const parsedDate = new Date(lastModified);
+  if (isNaN(parsedDate.getTime())) return null;
+
+  const diffMs = new Date().getTime() - parsedDate.getTime();
+  if (diffMs < 0) return '0 seconds old';
+
+  const seconds = Math.floor(diffMs / 1000);
+  if (seconds < 60) return `${seconds} ${seconds === 1 ? 'second' : 'seconds'} old`;
+
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} old`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} ${hours === 1 ? 'hour' : 'hours'} old`;
+
+  const days = Math.floor(hours / 24);
+  return `${days} ${days === 1 ? 'day' : 'days'} old`;
+}
+
 function buildPrecomputedState() {
   const precomputedRulesets: CategorizedRulesetConfig[] = PRECOMPUTED_RULESETS.map((p) => ({
     id: p.id,
@@ -300,6 +321,10 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
     return getDateColor(currentMetrics?.lastModified ?? undefined);
   }, [currentMetrics?.lastModified]);
 
+  const relativeAge = useMemo(() => {
+    return formatRelativeAge(currentMetrics?.lastModified);
+  }, [currentMetrics?.lastModified]);
+
   const comparisons = useMemo(() => {
     if (!currentMetrics || currentMetrics.loading || currentMetrics.error) return [];
 
@@ -462,11 +487,11 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
                         .join(' aka ') + ' 😉'}
                     </p>
                   )}
-                  {currentRuleset.category !== 'Templates' && currentMetrics.lastModified && (
+                  {currentRuleset.category !== 'Templates' && relativeAge && (
                     <p className="last-changed-subtitle" style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary, #666)' }}>
-                      Last changed:{' '}
+                      Current ruleset is{' '}
                       <span style={{ color: dateColor, fontWeight: 600 }}>
-                        {currentMetrics.lastModified}
+                        {relativeAge}
                       </span>
                     </p>
                   )}
