@@ -271,7 +271,7 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
   const currentRuleset = rulesets.find((r) => r.id === activeTabId) || rulesets[0];
   const currentMetrics = dataMap[currentRuleset?.id];
 
-  const getDateColor = (lastModified?: string) => {
+  const getDateColor = (lastModified?: string | null) => {
     if (!lastModified) return 'inherit';
     const parsedDate = new Date(lastModified);
     if (isNaN(parsedDate.getTime())) return 'inherit';
@@ -297,7 +297,7 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
   };
 
   const dateColor = useMemo(() => {
-    return getDateColor(currentMetrics?.lastModified);
+    return getDateColor(currentMetrics?.lastModified ?? undefined);
   }, [currentMetrics?.lastModified]);
 
   const comparisons = useMemo(() => {
@@ -320,7 +320,7 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
 
         const score = calculateJaccardSimilarity(currentMetrics.wordSet, otherMetrics.wordSet);
         const sizeText = formatSizeComparison(currentMetrics.words, otherMetrics.words);
-        const indicatorColor = getDateColor(otherMetrics.lastModified);
+        const indicatorColor = getDateColor(otherMetrics.lastModified ?? undefined);
 
         return {
           ruleset: other,
