@@ -1,100 +1,16 @@
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import './App.css';
 import {
-  type RulesetConfig,
-  type MetricData,
   INITIAL_RULESETS,
   HELP_TEXTS,
   calculateJaccardSimilarity,
   formatSizeComparison,
   getDistinctTopWords,
-  fetchMetrics,
 } from './utils/rulesetAnalysis';
-import { PRECOMPUTED_RULESETS } from './precomputedRulesets';
-
-export interface CategorizedRulesetConfig extends RulesetConfig {
-  category: 'Templates' | 'Games';
-}
-
-function formatRelativeAge(lastModified?: string | null): string | null {
-  if (!lastModified) return null;
-  const parsedDate = new Date(lastModified);
-  if (isNaN(parsedDate.getTime())) return null;
-
-  const diffMs = new Date().getTime() - parsedDate.getTime();
-  if (diffMs < 0) return '0 seconds old';
-
-  const seconds = Math.floor(diffMs / 1000);
-  if (seconds < 60) return `${seconds} ${seconds === 1 ? 'second' : 'seconds'} old`;
-
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} old`;
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} ${hours === 1 ? 'hour' : 'hours'} old`;
-
-  const days = Math.floor(hours / 24);
-  return `${days} ${days === 1 ? 'day' : 'days'} old`;
-}
-
-function buildPrecomputedState() {
-  const precomputedRulesets: CategorizedRulesetConfig[] = PRECOMPUTED_RULESETS.map((p) => ({
-    id: p.id,
-    name: p.name,
-    fetchUrl: './',
-    linkUrl: p.linkUrl,
-    homeUrl: p.homeUrl,
-    category: 'Templates',
-  }));
-
-  const precomputedDataMap: Record<string, MetricData> = {};
-  PRECOMPUTED_RULESETS.forEach((p) => {
-    precomputedDataMap[p.id] = {
-      words: p.metrics.words,
-      characters: p.metrics.characters,
-      content: p.content,
-      wordSet: new Set(p.metrics.wordSet),
-      wordCounts: new Map(Object.entries(p.metrics.wordCounts)),
-      loading: false,
-      error: null,
-    };
-  });
-
-  return { precomputedRulesets, precomputedDataMap };
-}
+import { useRulesetData } from './useRulesetData';
 
 export function App() {
-  const [rulesets, setRulesets] = useState<CategorizedRulesetConfig[]>(() => {
-    const { precomputedRulesets } = buildPrecomputedState();
-    const precomputedIds = new Set(precomputedRulesets.map((r) => r.id));
-
-    const filteredInitial: CategorizedRulesetConfig[] = INITIAL_RULESETS
-      .filter((r) => !precomputedIds.has(r.id))
-      .map((r) => ({ ...r, category: 'Games' }));
-
-    return [...filteredInitial, ...precomputedRulesets];
-  });
-
-  const [dataMap, setDataMap] = useState<Record<string, MetricData>>(() => {
-    const { precomputedDataMap } = buildPrecomputedState();
-    const initialMap: Record<string, MetricData> = { ...precomputedDataMap };
-
-    INITIAL_RULESETS.forEach((r) => {
-      if (!initialMap[r.id]) {
-        initialMap[r.id] = {
-          words: 0,
-          characters: 0,
-          content: '',
-          wordSet: new Set(),
-          wordCounts: new Map(),
-          loading: true,
-          error: null,
-        };
-      }
-    });
-
-    return initialMap;
-  });
+  const { rulesets, dataMap } = useRulesetData();
 
   const [activeTabId, setActiveTabId] = useState<string>(INITIAL_RULESETS[0]?.id || rulesets[0]?.id || 'nomic');
   const [showRawText, setShowRawText] = useState<boolean>(false);
@@ -109,103 +25,6 @@ export function App() {
     setSelectedTopWord(null);
   };
 
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadImportedRulesets = async () => {
-      try {
-        const { precomputedRulesets } = buildPrecomputedState();
-        const precomputedIds = new Set(precomputedRulesets.map((r) => r.id));
-
-        const importFiles = import.meta.glob('./templates/*.txt', { query: '?raw', import: 'default' });
-        const filePaths = Object.keys(importFiles);
-
-        if (filePaths.length === 0) return;
-
-        const importedRulesets: CategorizedRulesetConfig[] = [];
-        const importedDataMapEntries: [string, MetricData][] = [];
-
-        for (const path of filePaths) {
-          const rawFileName = path.split('/').pop()?.replace(/\.txt$/, '') || '';
-          const id = rawFileName.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-          if (precomputedIds.has(id)) continue;
-
-          const name = rawFileName ? rawFileName.charAt(0).toUpperCase() + rawFileName.slice(1) : 'Untitled';
-
-          let rawText = '';
-          try {
-            rawText = (await importFiles[path]()) as string;
-          } catch (fileErr) {
-            console.error(`Failed to load template file '${path}':`, fileErr);
-            continue;
-          }
-
-          const lines = rawText.trim().split('\n');
-          const linkUrl = lines[0] ? lines[0].trim() : '#';
-          const contentBody = lines.slice(1).join('\n');
-
-          const blob = new Blob([contentBody], { type: 'text/plain' });
-          const objectUrl = URL.createObjectURL(blob);
-
-          importedRulesets.push({
-            id,
-            name,
-            fetchUrl: objectUrl,
-            linkUrl,
-            homeUrl: '#',
-            category: 'Templates',
-          });
-
-          importedDataMapEntries.push([
-            id,
-            {
-              words: 0,
-              characters: 0,
-              content: '',
-              wordSet: new Set(),
-              wordCounts: new Map(),
-              loading: true,
-              error: null,
-            },
-          ]);
-        }
-
-        if (!isMounted || importedRulesets.length === 0) return;
-
-        setRulesets((prev) => {
-          const games = prev.filter((r) => r.category === 'Games');
-          const templates = prev.filter((r) => r.category === 'Templates');
-
-          const updatedTemplates = [...templates];
-          importedRulesets.forEach((newRule) => {
-            const index = updatedTemplates.findIndex((r) => r.id === newRule.id);
-            if (index >= 0) {
-              updatedTemplates[index] = newRule;
-            } else {
-              updatedTemplates.push(newRule);
-            }
-          });
-
-          return [...games, ...updatedTemplates];
-        });
-
-        setDataMap((prev) => ({
-          ...prev,
-          ...Object.fromEntries(importedDataMapEntries),
-        }));
-      } catch (e) {
-        console.error('Failure importing rulesets from /templates directory:', e);
-      }
-    };
-
-    loadImportedRulesets();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
   const groupedRulesets = useMemo(() => {
     return {
       Games: rulesets.filter((r) => r.category === 'Games'),
@@ -213,86 +32,10 @@ export function App() {
     };
   }, [rulesets]);
 
-  useEffect(() => {
-    rulesets.forEach((ruleset) => {
-      if (dataMap[ruleset.id] && !dataMap[ruleset.id].loading && !dataMap[ruleset.id].error) {
-        return;
-      }
-
-      fetchMetrics(ruleset)
-        .then((data) => {
-          setDataMap((prev) => ({
-            ...prev,
-            [ruleset.id]: { ...data, loading: false, error: null },
-          }));
-        })
-        .catch((err) => {
-          setDataMap((prev) => ({
-            ...prev,
-            [ruleset.id]: { ...prev[ruleset.id], loading: false, error: err.message },
-          }));
-        });
-    });
-  }, [rulesets]);
-
-  const handleExportTs = () => {
-    const localRulesets = rulesets.filter(
-      (r) => r.fetchUrl.startsWith('./') || r.fetchUrl.startsWith('blob:')
-    );
-
-    const exportData = localRulesets.map((r) => {
-      const metrics = dataMap[r.id];
-      return {
-        id: r.id,
-        name: r.name,
-        linkUrl: r.linkUrl,
-        homeUrl: r.homeUrl,
-        content: metrics?.content || '',
-        metrics: {
-          words: metrics?.words || 0,
-          characters: metrics?.characters || 0,
-          uniqueWordCount: metrics?.wordSet?.size || 0,
-          wordSet: metrics?.wordSet ? Array.from(metrics.wordSet) : [],
-          wordCounts: metrics?.wordCounts ? Object.fromEntries(metrics.wordCounts) : {},
-        },
-      };
-    });
-
-    const tsContent = `// Auto-generated precomputed ruleset data (Local files only)
-export interface PrecomputedRuleset {
-  id: string;
-  name: string;
-  linkUrl: string;
-  homeUrl: string;
-  content: string;
-  metrics: {
-    words: number;
-    characters: number;
-    uniqueWordCount: number;
-    wordSet: string[];
-    wordCounts: Record<string, number>;
-  };
-}
-
-export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(exportData, null, 2)};
-`;
-
-    const blob = new Blob([tsContent], { type: 'text/typescript' });
-    const url = URL.createObjectURL(blob);
-
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'precomputedRulesets.ts';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
   const currentRuleset = rulesets.find((r) => r.id === activeTabId) || rulesets[0];
   const currentMetrics = dataMap[currentRuleset?.id];
 
-  const getDateColor = (lastModified?: string | null) => {
+  const getDateColor = (lastModified?: string | null): string => {
     if (!lastModified) return 'inherit';
     const parsedDate = new Date(lastModified);
     if (isNaN(parsedDate.getTime())) return 'inherit';
@@ -318,8 +61,29 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
   };
 
   const dateColor = useMemo(() => {
-    return getDateColor(currentMetrics?.lastModified ?? undefined);
+    return getDateColor(currentMetrics?.lastModified);
   }, [currentMetrics?.lastModified]);
+
+  const formatRelativeAge = (lastModified?: string | null): string | null => {
+    if (!lastModified) return null;
+    const parsedDate = new Date(lastModified);
+    if (isNaN(parsedDate.getTime())) return null;
+
+    const diffMs = new Date().getTime() - parsedDate.getTime();
+    if (diffMs < 0) return '0 seconds old';
+
+    const seconds = Math.floor(diffMs / 1000);
+    if (seconds < 60) return `${seconds} ${seconds === 1 ? 'second' : 'seconds'} old`;
+
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} old`;
+
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} ${hours === 1 ? 'hour' : 'hours'} old`;
+
+    const days = Math.floor(hours / 24);
+    return `${days} ${days === 1 ? 'day' : 'days'} old`;
+  };
 
   const relativeAge = useMemo(() => {
     return formatRelativeAge(currentMetrics?.lastModified);
@@ -345,7 +109,7 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
 
         const score = calculateJaccardSimilarity(currentMetrics.wordSet, otherMetrics.wordSet);
         const sizeText = formatSizeComparison(currentMetrics.words, otherMetrics.words);
-        const indicatorColor = getDateColor(otherMetrics.lastModified ?? undefined);
+        const indicatorColor = getDateColor(otherMetrics.lastModified);
 
         return {
           ruleset: other,
@@ -433,6 +197,60 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
     return getDistinctTopWords(topWords, currentRuleset?.name || '', 4);
   }, [topWords, currentRuleset]);
 
+  const handleExportTs = () => {
+    const localRulesets = rulesets.filter(
+      (r) => r.fetchUrl.startsWith('./') || r.fetchUrl.startsWith('blob:')
+    );
+
+    const exportData = localRulesets.map((r) => {
+      const metrics = dataMap[r.id];
+      return {
+        id: r.id,
+        name: r.name,
+        linkUrl: r.linkUrl,
+        homeUrl: r.homeUrl,
+        content: metrics?.content || '',
+        metrics: {
+          words: metrics?.words || 0,
+          characters: metrics?.characters || 0,
+          uniqueWordCount: metrics?.wordSet?.size || 0,
+          wordSet: metrics?.wordSet ? Array.from(metrics.wordSet) : [],
+          wordCounts: metrics?.wordCounts ? Object.fromEntries(metrics.wordCounts) : {},
+        },
+      };
+    });
+
+    const tsContent = `// Auto-generated precomputed ruleset data (Local files only)
+export interface PrecomputedRuleset {
+  id: string;
+  name: string;
+  linkUrl: string;
+  homeUrl: string;
+  content: string;
+  metrics: {
+    words: number;
+    characters: number;
+    uniqueWordCount: number;
+    wordSet: string[];
+    wordCounts: Record<string, number>;
+  };
+}
+
+export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(exportData, null, 2)};
+`;
+
+    const blob = new Blob([tsContent], { type: 'text/typescript' });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'precomputedRulesets.ts';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="app-container">
       <header className="app-header">
@@ -440,7 +258,6 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
       </header>
 
       <div className="layout-body">
-        {/* Sidebar Navigation */}
         <aside className="sidebar-nav">
           {Object.entries(groupedRulesets).map(([category, items]) => {
             if (items.length === 0) return null;
@@ -466,7 +283,6 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
           })}
         </aside>
 
-        {/* Main Content Area */}
         <main className="main-content">
           {!currentMetrics || currentMetrics.loading ? (
             <p>Loading ruleset data...</p>
@@ -488,9 +304,9 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
                     </p>
                   )}
                   {currentRuleset.category !== 'Templates' && relativeAge && (
-                    <p className="last-changed-subtitle" style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary, #666)' }}>
+                    <p className="last-changed-subtitle">
                       Current ruleset is{' '}
-                      <span style={{ color: dateColor, fontWeight: 600 }}>
+                      <span className="last-changed-value" style={{ color: dateColor }}>
                         {relativeAge}
                       </span>
                     </p>
@@ -498,9 +314,7 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
                 </div>
                 <div className="header-links">
                   {currentRuleset.category === 'Templates' ? (
-                    <span className="template-badge">
-                      Template
-                    </span>
+                    <span className="template-badge">Template</span>
                   ) : (
                     currentRuleset.homeUrl !== '#' && (
                       <a href={currentRuleset.homeUrl} target="_blank" rel="noreferrer" className="external-link">
@@ -547,7 +361,6 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
                           title={textContent}
                           onClick={() => setSelectedTopWord(isSelected ? null : word)}
                           className={`word-badge help-cursor ${isSelected ? 'selected-badge' : ''}`}
-                          style={{ cursor: 'pointer' }}
                         >
                           <span>{word}</span>
                           <span className="count-pill">{count}</span>
@@ -565,18 +378,11 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
                   const detailText = `Appears ${activeItem.count} times. ${activeItem.score.toFixed(1)}x more frequent than in normalized ruleset.`;
 
                   return (
-                    <div
-                      className="help-text"
-                      title={detailText}
-                      style={{ marginTop: '12px', display: 'flex', alignItems: 'center' }}
-                    >
+                    <div className="help-text top-word-detail" title={detailText}>
                       <span>
                         <strong>{activeItem.word}:</strong> {detailText}
                       </span>
-                      <button
-                        onClick={() => setSelectedTopWord(null)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
-                      >
+                      <button onClick={() => setSelectedTopWord(null)} className="close-detail-button">
                         ✕
                       </button>
                     </div>
@@ -598,25 +404,14 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
               </div>
 
               <div className="card">
-                <div className="section-header" style={{ justifyContent: 'space-between', gap: '8px' }}>
-                  <h3 style={{ margin: 0 }}>Similarity to Other Nomics</h3>
-                  <div style={{ display: 'flex', gap: '4px', background: 'rgba(0,0,0,0.05)', padding: '3px', borderRadius: '6px' }}>
+                <div className="section-header similarity-header">
+                  <h3 className="similarity-header-title">Similarity to Other Nomics</h3>
+                  <div className="similarity-filter-group">
                     {(['All', 'Games', 'Templates'] as const).map((filter) => (
                       <button
                         key={filter}
                         onClick={() => setSimilarityFilter(filter)}
-                        style={{
-                          background: similarityFilter === filter ? '#fff' : 'transparent',
-                          border: 'none',
-                          borderRadius: '4px',
-                          padding: '4px 10px',
-                          fontSize: '0.8rem',
-                          fontWeight: similarityFilter === filter ? 600 : 400,
-                          color: similarityFilter === filter ? 'var(--text-primary, #111)' : 'var(--text-secondary, #666)',
-                          cursor: 'pointer',
-                          boxShadow: similarityFilter === filter ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                          transition: 'all 0.15s ease',
-                        }}
+                        className={`similarity-filter-button ${similarityFilter === filter ? 'active' : ''}`}
                       >
                         {filter}
                       </button>
@@ -624,44 +419,26 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
                   </div>
                 </div>
 
-                <div className="comparisons-list" style={{ marginTop: '16px' }}>
+                <div className="comparisons-list">
                   {comparisons.length > 0 ? (
                     comparisons.map(({ ruleset, score, sizeText, indicatorColor, error }) => (
                       <div key={ruleset.id} className="comparison-item">
                         <div className="comparison-header">
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div className="comparison-title-container">
                             <button
                               onClick={() => handleSelectRuleset(ruleset.id)}
                               className="comparison-title-button"
-                              style={{
-                                background: 'none',
-                                border: 'none',
-                                padding: 0,
-                                font: 'inherit',
-                                color: 'inherit',
-                                fontWeight: 600,
-                                cursor: 'pointer',
-                                textDecoration: 'underline',
-                                textDecorationColor: 'transparent',
-                                transition: 'text-decoration-color 0.15s ease',
-                              }}
-                              onMouseEnter={(e) => (e.currentTarget.style.textDecorationColor = 'currentColor')}
-                              onMouseLeave={(e) => (e.currentTarget.style.textDecorationColor = 'transparent')}
                             >
                               {ruleset.name}
                             </button>
                             {ruleset.category === 'Templates' ? (
-                              <span className="template-badge" style={{ fontSize: '0.75rem', padding: '2px 6px' }}>
-                                Template
-                              </span>
+                              <span className="template-badge badge-template-small">Template</span>
                             ) : (
                               <span
+                                className="badge-game"
                                 style={{
-                                  fontSize: '0.75rem',
                                   color: indicatorColor !== 'inherit' ? indicatorColor : 'var(--text-secondary, #666)',
                                   background: indicatorColor !== 'inherit' ? `${indicatorColor}15` : 'rgba(0,0,0,0.05)',
-                                  padding: '2px 6px',
-                                  borderRadius: '4px',
                                   fontWeight: indicatorColor !== 'inherit' ? 600 : 400,
                                 }}
                               >
@@ -682,9 +459,7 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
                         )}
 
                         {score !== null && sizeText !== null && (
-                          <div className="comparison-size">
-                            Size: {sizeText}
-                          </div>
+                          <div className="comparison-size">Size: {sizeText}</div>
                         )}
                       </div>
                     ))
@@ -727,66 +502,38 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
               </div>
 
               <div>
-                <button
-                  onClick={() => setShowRawText(!showRawText)}
-                  className="preview-toggle-button"
-                >
+                <button onClick={() => setShowRawText(!showRawText)} className="preview-toggle-button">
                   📄 {showRawText ? 'Hide' : 'Show'} Ruleset Preview
                 </button>
 
-                {showRawText && (
-                  <pre className="raw-text-preview">
-                    {currentMetrics.content}
-                  </pre>
-                )}
+                {showRawText && <pre className="raw-text-preview">{currentMetrics.content}</pre>}
               </div>
             </div>
           )}
 
-
-
-    <div className="card" style={{ marginTop: '24px' }}>
-  <div 
-    className="header-links" 
-    style={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
-      alignItems: 'flex-start', 
-      gap: '12px', 
-      marginBottom: '16px' 
-    }}
-  >
-    <a href="https://nomic.fandom.com/wiki/Leaderboards" target="_blank" rel="noreferrer" className="external-link">
-      More games, more comparisons and Fandom pages ↗
-    </a>
-    <a href="https://kiako.me/nomic/" target="_blank" rel="noreferrer" className="external-link">
-      Introduction to Nomic ↗
-    </a>
-    <a href="https://github.com/cieok/nomicinfra" target="_blank" rel="noreferrer" className="external-link">
-      GitHub repository of this page ↗
-    </a>
-  </div>
-</div>
-
-            <div style={{ marginTop: '12px', textAlign: 'right' }}>
-              <button
-                onClick={handleExportTs}
-                aria-label="Export"
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: 'rgba(0, 0, 0, 0.08)',
-                  fontSize: '0.7rem',
-                  cursor: 'pointer',
-                  padding: '2px 4px',
-                  outline: 'none',
-                  boxShadow: 'none',
-                }}
-              >
-                .
-              </button>
+          <div className="card footer-card">
+            <div className="header-links footer-links">
+              <a href="https://nomic.fandom.com/wiki/Leaderboards" target="_blank" rel="noreferrer" className="external-link">
+                More games, more comparisons and Fandom pages ↗
+              </a>
+              <a href="https://kiako.me/nomic/" target="_blank" rel="noreferrer" className="external-link">
+                Introduction to Nomic ↗
+              </a>
+              <a href="https://github.com/cieok/nomicinfra" target="_blank" rel="noreferrer" className="external-link">
+                GitHub repository of this page ↗
+              </a>
             </div>
-          
+          </div>
+
+          <div className="export-trigger-container">
+            <button
+              onClick={handleExportTs}
+              aria-label="Export"
+              className="export-trigger-button"
+            >
+              .
+            </button>
+          </div>
         </main>
       </div>
     </div>

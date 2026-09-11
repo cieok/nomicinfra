@@ -495,3 +495,134 @@
     position: static;
   }
 }
+
+/* Subtitles and Labels */
+.last-changed-subtitle {
+  margin: 4px 0 0 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary, #666);
+}
+
+.last-changed-value {
+  font-weight: 600;
+}
+
+/* Selected Details Bar */
+.top-word-detail {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+}
+
+.close-detail-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+/* Similarity Section Header & Filter Controls */
+.similarity-header {
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.similarity-header-title {
+  margin: 0;
+}
+
+.similarity-filter-group {
+  display: flex;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 3px;
+  border-radius: 6px;
+}
+
+.similarity-filter-button {
+  border: none;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  background: transparent;
+  font-weight: 400;
+  color: var(--text-secondary, #666);
+  box-shadow: none;
+}
+
+.similarity-filter-button.active {
+  background: #fff;
+  font-weight: 600;
+  color: var(--text-primary, #111);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Comparison Item Elements */
+.comparisons-list {
+  margin-top: 16px;
+}
+
+.comparison-title-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.comparison-title-button {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  transition: text-decoration-color 0.15s ease;
+}
+
+.comparison-title-button:hover {
+  text-decoration-color: currentColor;
+}
+
+.badge-template-small {
+  font-size: 0.75rem;
+  padding: 2px 6px;
+}
+
+.badge-game {
+  font-size: 0.75rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* Footer Section */
+.footer-card {
+  margin-top: 24px;
+}
+
+.footer-links {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.export-trigger-container {
+  margin-top: 12px;
+  text-align: right;
+}
+
+.export-trigger-button {
+  background: transparent;
+  border: none;
+  color: rgba(0, 0, 0, 0.08);
+  font-size: 0.7rem;
+  cursor: pointer;
+  padding: 2px 4px;
+  outline: none;
+  box-shadow: none;
+}
