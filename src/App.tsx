@@ -743,21 +743,30 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
             </div>
           )}
 
-          <div className="card" style={{ marginTop: '24px' }}>
-            <div className="header-links" style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '16px' }}>
-              <a href="https://nomic.fandom.com/wiki/Leaderboards" target="_blank" rel="noreferrer" className="external-link">
-                More games, more comparisons and Fandom pages ↗
-              </a>
-              <a href="https://kiako.me/nomic/" target="_blank" rel="noreferrer" className="external-link">
-                Introduction to Nomic ↗
-              </a>
-            </div>
 
-            <div className="header-links" style={{ marginBottom: '16px' }}>
-              <a href="https://github.com/cieok/nomicinfra" target="_blank" rel="noreferrer" className="external-link">
-                GitHub repository of this page ↗
-              </a>
-            </div>
+
+    <div className="card" style={{ marginTop: '24px' }}>
+  <div 
+    className="header-links" 
+    style={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      alignItems: 'flex-start', 
+      gap: '12px', 
+      marginBottom: '16px' 
+    }}
+  >
+    <a href="https://nomic.fandom.com/wiki/Leaderboards" target="_blank" rel="noreferrer" className="external-link">
+      More games, more comparisons and Fandom pages ↗
+    </a>
+    <a href="https://kiako.me/nomic/" target="_blank" rel="noreferrer" className="external-link">
+      Introduction to Nomic ↗
+    </a>
+    <a href="https://github.com/cieok/nomicinfra" target="_blank" rel="noreferrer" className="external-link">
+      GitHub repository of this page ↗
+    </a>
+  </div>
+</div>
 
             <div style={{ marginTop: '12px', textAlign: 'right' }}>
               <button
@@ -777,7 +786,7 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
                 .
               </button>
             </div>
-          </div>
+          
         </main>
       </div>
     </div>
