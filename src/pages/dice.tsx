@@ -236,17 +236,16 @@ export default function Dice(): React.ReactElement {
       <section style={styles.nomicInfoCard}>
         <h2 style={styles.nomicTitle}>🎲 Why Use This for Online Nomic?</h2>
         <ul style={styles.nomicList}>
-         
-          <li>
-            <strong>Verifiable & Anti-Cheat:</strong> NIST pulses are cryptographically signed using RSA/SHA-512 by a government agency, making them impossible to alter if you have no control over the agency.
-          </li>
           <li>
             <strong>Pre-Commitment Mechanism:</strong> Players can agree on a target UTC timestamp <em>in advance</em> (e.g., "The turn 14 roll will
              use the NIST pulse at 18:00 UTC"). Because the future pulse output is mathematically unpredictable by anyone prior to release, no 
              player can choose when to roll or delete roll based on favorable odds.
           </li>
           <li>
-            <strong>Asynchronous Friendly:</strong> Ideal for play-by-forum or play-by-mail Nomic. Anyone can independently calculate and verify the exact same outcome from the NIST archive using the exact deterministic formula shown below.
+            <strong>Verifiable & Anti-Cheat:</strong> NIST pulses are cryptographically signed using RSA/SHA-512 by a government agency, making them impossible to alter if you have no control over the agency.
+          </li>
+          <li>
+            <strong>Asynchronous Friendly:</strong> Ideal for play-by-forum or play-by-mail Nomic. Anyone can independently calculate and verify the exact same outcome from the NIST archive using the exact deterministic formula shown after a succesful roll.
           </li>
         </ul>
       </section>
