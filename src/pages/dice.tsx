@@ -240,7 +240,7 @@ export default function Dice(): React.ReactElement {
             <strong>Universal UTC Scheduling:</strong> All timestamps are strictly measured in UTC, allowing participants across different time zones to agree on an exact scheduled roll without timezone confusion.
           </li>
           <li>
-            <strong>Verifiable & Anti-Cheat:</strong> Nomic rule changes often incentivize players to manipulate outcomes. Standard client-side or private RNGs can be re-rolled or faked. NIST pulses are cryptographically signed using RSA/SHA-512 by a neutral government agency, making them impossible to alter.
+            <strong>Verifiable & Anti-Cheat:</strong> NIST pulses are cryptographically signed using RSA/SHA-512 by a government agency, making them impossible to alter if you have no control over the agency.
           </li>
           <li>
             <strong>Pre-Commitment Mechanism:</strong> Players can agree on a target UTC timestamp <em>in advance</em> (e.g., "The turn 14 roll will use the NIST pulse at 18:00 UTC"). Because the future pulse output is mathematically unpredictable by anyone prior to release, no player can choose when to roll based on favorable odds.
