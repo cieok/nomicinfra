@@ -32,6 +32,7 @@ interface CalculationDetails {
 interface ScheduledRoll {
   targetTimestampMs: number;
   targetDateUtc: string;
+  pulseUri: string;
 }
 
 // NIST pulse generation, signing & CDN propagation delay buffer in ms (25 seconds)
@@ -129,6 +130,7 @@ export default function Dice(): React.ReactElement {
         throw new Error('Invalid UTC date/time selection.');
       }
 
+      const expectedPulseUri = `https://beacon.nist.gov/beacon/2.0/pulse/time/${timestampMs}`;
       const now = Date.now();
       const targetAvailableTimeMs = timestampMs + NIST_DELAY_OFFSET_MS;
 
@@ -137,20 +139,20 @@ export default function Dice(): React.ReactElement {
         setScheduledRoll({
           targetTimestampMs: timestampMs,
           targetDateUtc: formatUtcDisplay(timestampMs),
+          pulseUri: expectedPulseUri,
         });
         setLoading(false);
         return;
       }
 
       // Fetch pulse from NIST Beacon 2.0 API using UTC timestamp in ms
-      const response = await fetch(
-        `https://beacon.nist.gov/beacon/2.0/pulse/time/${timestampMs}`
-      );
+      const response = await fetch(expectedPulseUri);
 
       if (response.status === 404) {
         setScheduledRoll({
           targetTimestampMs: timestampMs,
           targetDateUtc: formatUtcDisplay(timestampMs),
+          pulseUri: expectedPulseUri,
         });
         setLoading(false);
         return;
@@ -177,7 +179,7 @@ export default function Dice(): React.ReactElement {
 
       setData({
         pulseTimestampUtc: formatUtcDisplay(pulse.timeStamp),
-        pulseUri: pulse.uri,
+        pulseUri: pulse.uri || expectedPulseUri,
         hexOutput: hexOutput,
         bigIntValue: bigIntValue.toString(),
         min: minNum.toString(),
@@ -321,6 +323,19 @@ export default function Dice(): React.ReactElement {
             The NIST pulse for this roll will be published at:
           </p>
           <p style={styles.scheduledTimeText}>{scheduledRoll.targetDateUtc}</p>
+          
+          <p style={{ margin: '0.5rem 0 1rem 0' }}>
+            <strong>Target Pulse URI:</strong>{' '}
+            <a
+              href={scheduledRoll.pulseUri}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={styles.backLink}
+            >
+              <code style={styles.inlineCode}>{scheduledRoll.pulseUri}</code>
+            </a>
+          </p>
+
           {timeRemainingSeconds !== null && (
             <div style={styles.countdownBox}>
               ⏱️ {formatCountdownText(timeRemainingSeconds)}
@@ -343,7 +358,17 @@ export default function Dice(): React.ReactElement {
           <div style={styles.card}>
             <h3 style={styles.cardTitle}>1. NIST Pulse Details</h3>
             <p><strong>Pulse Time (UTC):</strong> {data.pulseTimestampUtc}</p>
-            <p><strong>URI:</strong> <code style={styles.inlineCode}>{data.pulseUri}</code></p>
+            <p>
+              <strong>URI:</strong>{' '}
+              <a
+                href={data.pulseUri}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={styles.backLink}
+              >
+                <code style={styles.inlineCode}>{data.pulseUri}</code>
+              </a>
+            </p>
             <p style={{ wordBreak: 'break-all' }}>
               <strong>Raw 512-bit Hex Output:</strong>
               <br />
