@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 
 // NIST Beacon 2.0 API Payload Type Definition
@@ -29,17 +29,69 @@ interface CalculationDetails {
   finalRandomValue: string;
 }
 
-// 1. NIST Randomness Beacon Dice Component
+interface ScheduledRoll {
+  targetTimestampMs: number;
+  targetDateUtc: string;
+}
+
+// NIST pulse generation & API release latency buffer in milliseconds (10 seconds)
+const NIST_DELAY_OFFSET_MS = 10 * 1000;
+
 export default function Dice(): React.ReactElement {
+  // Helper to format a Date into datetime-local string format (YYYY-MM-THH:mm)
+  const formatLocalDateTime = (date: Date): string => {
+    return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+      .toISOString()
+      .slice(0, 16);
+  };
+
+  // Default initial timestamp set to current time + 1 minute
   const [dateTime, setDateTime] = useState<string>(
-    new Date().toISOString().slice(0, 16)
+    formatLocalDateTime(new Date(Date.now() + 1 * 60 * 1000))
   );
   const [min, setMin] = useState<number | string>(1);
   const [max, setMax] = useState<number | string>(6);
 
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [scheduledRoll, setScheduledRoll] = useState<ScheduledRoll | null>(null);
+  const [timeRemainingSeconds, setTimeRemainingSeconds] = useState<number | null>(null);
   const [data, setData] = useState<CalculationDetails | null>(null);
+
+  // Function to add 10 minutes to the currently displayed/selected timestamp
+  const addTenMinutesToCurrentInput = (): void => {
+    const currentMs = new Date(dateTime).getTime();
+    if (isNaN(currentMs)) {
+      setDateTime(formatLocalDateTime(new Date(Date.now() + 10 * 60 * 1000)));
+      return;
+    }
+    const tenMinInMs = 10 * 60 * 1000;
+    const futureDate = new Date(currentMs + tenMinInMs);
+    setDateTime(formatLocalDateTime(futureDate));
+  };
+
+  // Timer countdown for future rolls including NIST delay buffer
+  useEffect(() => {
+    if (!scheduledRoll) {
+      setTimeRemainingSeconds(null);
+      return;
+    }
+
+    const updateCountdown = () => {
+      // Add the 10-second NIST release delay to target availability time
+      const availabilityTimeMs = scheduledRoll.targetTimestampMs + NIST_DELAY_OFFSET_MS;
+      const diffMs = availabilityTimeMs - Date.now();
+      if (diffMs <= 0) {
+        setTimeRemainingSeconds(0);
+      } else {
+        setTimeRemainingSeconds(Math.ceil(diffMs / 1000));
+      }
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [scheduledRoll]);
 
   const handleFetchAndCalculate = async (
     e: React.FormEvent<HTMLFormElement>
@@ -48,6 +100,7 @@ export default function Dice(): React.ReactElement {
     setLoading(true);
     setError(null);
     setData(null);
+    setScheduledRoll(null);
 
     const minNum = BigInt(min);
     const maxNum = BigInt(max);
@@ -65,10 +118,34 @@ export default function Dice(): React.ReactElement {
         throw new Error('Invalid date/time selection.');
       }
 
+      const now = Date.now();
+      // Require current time to be at least (timestamp + 10 second NIST publication delay)
+      const targetAvailableTimeMs = timestampMs + NIST_DELAY_OFFSET_MS;
+
+      // Check if selected time + delay is in the future
+      if (now < targetAvailableTimeMs) {
+        setScheduledRoll({
+          targetTimestampMs: timestampMs,
+          targetDateUtc: new Date(timestampMs).toUTCString(),
+        });
+        setLoading(false);
+        return;
+      }
+
       // Fetch pulse from NIST Beacon 2.0 API
       const response = await fetch(
         `https://beacon.nist.gov/beacon/2.0/pulse/time/${timestampMs}`
       );
+
+      // Handle 404 (pulse not yet available or generated on server)
+      if (response.status === 404) {
+        setScheduledRoll({
+          targetTimestampMs: timestampMs,
+          targetDateUtc: new Date(timestampMs).toUTCString(),
+        });
+        setLoading(false);
+        return;
+      }
 
       if (!response.ok) {
         throw new Error(`NIST API error: ${response.status} ${response.statusText}`);
@@ -111,8 +188,26 @@ export default function Dice(): React.ReactElement {
     }
   };
 
+  const formatCountdownText = (seconds: number | null): string => {
+    if (seconds === null) return '';
+    if (seconds <= 0) return 'Pulse available now! Click "Roll Dice / Generate" to fetch.';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    if (mins > 0) {
+      return `${mins}m ${secs}s remaining (incl. ~10s NIST publishing delay)`;
+    }
+    return `${secs}s remaining (incl. ~10s NIST publishing delay)`;
+  };
+
   return (
     <div style={styles.container}>
+      {/* Top Navigation */}
+      <nav style={styles.topNav}>
+        <a href="/" style={styles.backLink}>
+          ← Back to Ruleset Comparison
+        </a>
+      </nav>
+
       <header style={styles.header}>
         <h1 style={styles.title}>NIST Beacon 2.0 Dice Roller</h1>
         <p style={styles.subtext}>
@@ -132,13 +227,23 @@ export default function Dice(): React.ReactElement {
       <form onSubmit={handleFetchAndCalculate} style={styles.form}>
         <div style={styles.inputGroup}>
           <label style={styles.label}>Select Timestamp:</label>
-          <input
-            type="datetime-local"
-            value={dateTime}
-            onChange={(e) => setDateTime(e.target.value)}
-            required
-            style={styles.input}
-          />
+          <div style={styles.timestampRow}>
+            <input
+              type="datetime-local"
+              value={dateTime}
+              onChange={(e) => setDateTime(e.target.value)}
+              required
+              style={styles.input}
+            />
+            <button
+              type="button"
+              onClick={addTenMinutesToCurrentInput}
+              style={styles.quickSelectBtn}
+              title="Add 10 minutes to the currently displayed time"
+            >
+              +10 Min
+            </button>
+          </div>
         </div>
 
         <div style={styles.row}>
@@ -172,6 +277,27 @@ export default function Dice(): React.ReactElement {
 
       {/* Errors */}
       {error && <div style={styles.errorCard}>{error}</div>}
+
+      {/* Future Roll Scheduled Card */}
+      {scheduledRoll && (
+        <div style={styles.scheduledCard}>
+          <div style={styles.scheduledHeader}>
+            <span style={styles.scheduledBadge}>Scheduled Roll</span>
+          </div>
+          <p style={styles.scheduledMainText}>
+            The NIST pulse for this roll will be published at:
+          </p>
+          <p style={styles.scheduledTimeText}>{scheduledRoll.targetDateUtc}</p>
+          {timeRemainingSeconds !== null && (
+            <div style={styles.countdownBox}>
+              ⏱️ {formatCountdownText(timeRemainingSeconds)}
+            </div>
+          )}
+          <p style={styles.scheduledNote}>
+            NIST generates pulses every 60 seconds with a ~10 second delay for signing and propagation. Once the countdown completes, click <strong>"Roll Dice / Generate"</strong> to retrieve the verifiable random result.
+          </p>
+        </div>
+      )}
 
       {/* Results & Calculations */}
       {data && (
@@ -216,8 +342,11 @@ export default function Dice(): React.ReactElement {
         </div>
       )}
 
+      {/* Footer link */}
       <div style={styles.footer}>
-        <a href="/">← Back to Main App</a>
+        <a href="/" style={styles.backLink}>
+          ← Back to Main App
+        </a>
       </div>
     </div>
   );
@@ -227,11 +356,20 @@ const styles: Record<string, React.CSSProperties> = {
   container: {
     maxWidth: '720px',
     margin: '0 auto',
-    padding: '2rem 1rem',
+    padding: '1.5rem 1rem 2rem 1rem',
     fontFamily: 'system-ui, -apple-system, sans-serif',
     color: '#333',
     minHeight: '100vh',
     boxSizing: 'border-box',
+  },
+  topNav: {
+    marginBottom: '1rem',
+  },
+  backLink: {
+    color: '#0066cc',
+    textDecoration: 'none',
+    fontWeight: 600,
+    fontSize: '0.95rem',
   },
   header: { marginBottom: '1.5rem', textAlign: 'center' },
   title: { margin: '0 0 0.5rem 0', fontSize: '2rem' },
@@ -246,6 +384,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: '1px solid #e9ecef',
   },
   row: { display: 'flex', gap: '1rem' },
+  timestampRow: { display: 'flex', gap: '0.5rem', alignItems: 'center' },
   inputGroup: { display: 'flex', flexDirection: 'column', flex: 1, gap: '0.25rem' },
   label: { fontSize: '0.875rem', fontWeight: 600, color: '#495057' },
   input: {
@@ -253,6 +392,18 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '4px',
     border: '1px solid #ced4da',
     fontSize: '1rem',
+    flex: 1,
+  },
+  quickSelectBtn: {
+    padding: '0.55rem 0.85rem',
+    backgroundColor: '#e9ecef',
+    color: '#495057',
+    border: '1px solid #ced4da',
+    borderRadius: '4px',
+    fontSize: '0.875rem',
+    fontWeight: 600,
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
   },
   button: {
     padding: '0.75rem',
@@ -272,6 +423,55 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#721c24',
     borderRadius: '6px',
     border: '1px solid #f5c6cb',
+  },
+  scheduledCard: {
+    marginTop: '1.5rem',
+    padding: '1.25rem',
+    backgroundColor: '#eebf3110',
+    border: '2px dashed #e0a800',
+    borderRadius: '8px',
+    textAlign: 'center',
+  },
+  scheduledHeader: {
+    marginBottom: '0.5rem',
+  },
+  scheduledBadge: {
+    backgroundColor: '#e0a800',
+    color: '#fff',
+    fontSize: '0.75rem',
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+    padding: '0.25rem 0.6rem',
+    borderRadius: '12px',
+  },
+  scheduledMainText: {
+    margin: '0.5rem 0 0.25rem 0',
+    fontSize: '1rem',
+    fontWeight: 600,
+    color: '#495057',
+  },
+  scheduledTimeText: {
+    margin: '0 0 0.75rem 0',
+    fontSize: '1.2rem',
+    fontWeight: 'bold',
+    color: '#212529',
+  },
+  countdownBox: {
+    backgroundColor: '#fff',
+    border: '1px solid #ffe8a1',
+    borderRadius: '6px',
+    padding: '0.6rem 1rem',
+    display: 'inline-block',
+    fontWeight: 'bold',
+    fontSize: '1.1rem',
+    color: '#856404',
+    marginBottom: '0.75rem',
+  },
+  scheduledNote: {
+    fontSize: '0.875rem',
+    color: '#6c757d',
+    margin: 0,
+    lineHeight: 1.4,
   },
   resultsContainer: { marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' },
   resultBadge: {
@@ -305,7 +505,7 @@ const styles: Record<string, React.CSSProperties> = {
   footer: { marginTop: '2rem', textAlign: 'center' },
 };
 
-// 2. Mounts to `#dice-root`
+// Mount to `#dice-root`
 const rootElement = document.getElementById('dice-root');
 
 if (!rootElement) {

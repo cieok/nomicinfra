@@ -266,6 +266,16 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
               </div>
             );
           })}
+
+          {/* Added Tools section */}
+          <div className="nav-group">
+            <div className="group-label">Tools</div>
+            <div className="nav-list">
+              <a href="/dice.html" className="nav-item">
+                NIST Beacon Dice
+              </a>
+            </div>
+          </div>
         </aside>
 
         <main className="main-content">
