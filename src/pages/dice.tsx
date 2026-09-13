@@ -18,7 +18,7 @@ interface NistBeaconResponse {
 }
 
 interface CalculationDetails {
-  pulseTimestamp: string;
+  pulseTimestampUtc: string;
   pulseUri: string;
   hexOutput: string;
   bigIntValue: string;
@@ -38,16 +38,28 @@ interface ScheduledRoll {
 const NIST_DELAY_OFFSET_MS = 25 * 1000;
 
 export default function Dice(): React.ReactElement {
-  // Helper to format a Date into datetime-local string format (YYYY-MM-THH:mm)
-  const formatLocalDateTime = (date: Date): string => {
-    return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
-      .toISOString()
-      .slice(0, 16);
+  // Helper to format a Date into UTC YYYY-MM-DDTHH:mm string format for <input>
+  const formatUtcDateTimeInput = (date: Date): string => {
+    return date.toISOString().slice(0, 16);
   };
 
-  // Default initial timestamp set to current time + 1 minute
-  const [dateTime, setDateTime] = useState<string>(
-    formatLocalDateTime(new Date(Date.now() + 1 * 60 * 1000))
+  // Helper to parse a YYYY-MM-DDTHH:mm string strictly as UTC
+  const parseUtcTimestampMs = (dateTimeStr: string): number => {
+    if (!dateTimeStr) return NaN;
+    // Append 'Z' to force parsing as UTC ISO string regardless of local browser timezone
+    const utcIsoStr = dateTimeStr.endsWith('Z') ? dateTimeStr : `${dateTimeStr}:00Z`;
+    return new Date(utcIsoStr).getTime();
+  };
+
+  // Helper to format UTC Date to human-readable string (e.g. "Sun, 13 Sep 2026 09:30:00 UTC")
+  const formatUtcDisplay = (dateStrOrMs: string | number): string => {
+    const date = new Date(dateStrOrMs);
+    return isNaN(date.getTime()) ? '' : `${date.toUTCString()} (UTC)`;
+  };
+
+  // Default initial timestamp set to current UTC time + 1 minutes
+  const [dateTimeUtc, setDateTimeUtc] = useState<string>(
+    formatUtcDateTimeInput(new Date(Date.now() + 1 * 60 * 1000))
   );
   const [min, setMin] = useState<number | string>(1);
   const [max, setMax] = useState<number | string>(6);
@@ -58,16 +70,16 @@ export default function Dice(): React.ReactElement {
   const [timeRemainingSeconds, setTimeRemainingSeconds] = useState<number | null>(null);
   const [data, setData] = useState<CalculationDetails | null>(null);
 
-  // Function to add 10 minutes to the currently displayed/selected timestamp
+  // Function to add 10 minutes (in UTC) to the currently displayed timestamp input
   const addTenMinutesToCurrentInput = (): void => {
-    const currentMs = new Date(dateTime).getTime();
+    const currentMs = parseUtcTimestampMs(dateTimeUtc);
     if (isNaN(currentMs)) {
-      setDateTime(formatLocalDateTime(new Date(Date.now() + 10 * 60 * 1000)));
+      setDateTimeUtc(formatUtcDateTimeInput(new Date(Date.now() + 10 * 60 * 1000)));
       return;
     }
     const tenMinInMs = 10 * 60 * 1000;
     const futureDate = new Date(currentMs + tenMinInMs);
-    setDateTime(formatLocalDateTime(futureDate));
+    setDateTimeUtc(formatUtcDateTimeInput(futureDate));
   };
 
   // Timer countdown for future rolls including NIST 25s latency buffer
@@ -78,7 +90,6 @@ export default function Dice(): React.ReactElement {
     }
 
     const updateCountdown = () => {
-      // Add the 25-second NIST release delay to target availability time
       const availabilityTimeMs = scheduledRoll.targetTimestampMs + NIST_DELAY_OFFSET_MS;
       const diffMs = availabilityTimeMs - Date.now();
       if (diffMs <= 0) {
@@ -112,36 +123,34 @@ export default function Dice(): React.ReactElement {
     }
 
     try {
-      const timestampMs = new Date(dateTime).getTime();
+      const timestampMs = parseUtcTimestampMs(dateTimeUtc);
 
       if (isNaN(timestampMs)) {
-        throw new Error('Invalid date/time selection.');
+        throw new Error('Invalid UTC date/time selection.');
       }
 
       const now = Date.now();
-      // Require current time to be at least (timestamp + 25 second NIST publication delay)
       const targetAvailableTimeMs = timestampMs + NIST_DELAY_OFFSET_MS;
 
-      // Check if selected time + delay is in the future
+      // Check if target UTC pulse time (+ 25s latency buffer) is in the future
       if (now < targetAvailableTimeMs) {
         setScheduledRoll({
           targetTimestampMs: timestampMs,
-          targetDateUtc: new Date(timestampMs).toUTCString(),
+          targetDateUtc: formatUtcDisplay(timestampMs),
         });
         setLoading(false);
         return;
       }
 
-      // Fetch pulse from NIST Beacon 2.0 API
+      // Fetch pulse from NIST Beacon 2.0 API using UTC timestamp in ms
       const response = await fetch(
         `https://beacon.nist.gov/beacon/2.0/pulse/time/${timestampMs}`
       );
 
-      // Handle 404 (pulse not yet available or generated on server)
       if (response.status === 404) {
         setScheduledRoll({
           targetTimestampMs: timestampMs,
-          targetDateUtc: new Date(timestampMs).toUTCString(),
+          targetDateUtc: formatUtcDisplay(timestampMs),
         });
         setLoading(false);
         return;
@@ -167,7 +176,7 @@ export default function Dice(): React.ReactElement {
       const finalRandomValue = minNum + moduloResult;
 
       setData({
-        pulseTimestamp: new Date(pulse.timeStamp).toUTCString(),
+        pulseTimestampUtc: formatUtcDisplay(pulse.timeStamp),
         pulseUri: pulse.uri,
         hexOutput: hexOutput,
         bigIntValue: bigIntValue.toString(),
@@ -223,15 +232,37 @@ export default function Dice(): React.ReactElement {
         </p>
       </header>
 
+      {/* Why NIST is Great for Nomic */}
+      <section style={styles.nomicInfoCard}>
+        <h2 style={styles.nomicTitle}>🎲 Why Use This for Online Nomic?</h2>
+        <ul style={styles.nomicList}>
+          <li>
+            <strong>Universal UTC Scheduling:</strong> All timestamps are strictly measured in UTC, allowing participants across different time zones to agree on an exact scheduled roll without timezone confusion.
+          </li>
+          <li>
+            <strong>Verifiable & Anti-Cheat:</strong> Nomic rule changes often incentivize players to manipulate outcomes. Standard client-side or private RNGs can be re-rolled or faked. NIST pulses are cryptographically signed using RSA/SHA-512 by a neutral government agency, making them impossible to alter.
+          </li>
+          <li>
+            <strong>Pre-Commitment Mechanism:</strong> Players can agree on a target UTC timestamp <em>in advance</em> (e.g., "The turn 14 roll will use the NIST pulse at 18:00 UTC"). Because the future pulse output is mathematically unpredictable by anyone prior to release, no player can choose when to roll based on favorable odds.
+          </li>
+          <li>
+            <strong>Asynchronous Friendly:</strong> Ideal for play-by-forum or play-by-mail Nomic. Anyone can independently calculate and verify the exact same outcome from the NIST archive using the exact deterministic formula shown below.
+          </li>
+        </ul>
+      </section>
+
       {/* Input Form */}
       <form onSubmit={handleFetchAndCalculate} style={styles.form}>
         <div style={styles.inputGroup}>
-          <label style={styles.label}>Select Timestamp:</label>
+          <div style={styles.labelRow}>
+            <label style={styles.label}>Select Target Timestamp (UTC):</label>
+            <span style={styles.utcBadge}>UTC ONLY</span>
+          </div>
           <div style={styles.timestampRow}>
             <input
               type="datetime-local"
-              value={dateTime}
-              onChange={(e) => setDateTime(e.target.value)}
+              value={dateTimeUtc}
+              onChange={(e) => setDateTimeUtc(e.target.value)}
               required
               style={styles.input}
             />
@@ -239,11 +270,14 @@ export default function Dice(): React.ReactElement {
               type="button"
               onClick={addTenMinutesToCurrentInput}
               style={styles.quickSelectBtn}
-              title="Add 10 minutes to the currently displayed time"
+              title="Add 10 minutes (UTC) to current selection"
             >
               +10 Min
             </button>
           </div>
+          <span style={styles.helpText}>
+            Selected UTC: {formatUtcDisplay(parseUtcTimestampMs(dateTimeUtc))}
+          </span>
         </div>
 
         <div style={styles.row}>
@@ -282,7 +316,7 @@ export default function Dice(): React.ReactElement {
       {scheduledRoll && (
         <div style={styles.scheduledCard}>
           <div style={styles.scheduledHeader}>
-            <span style={styles.scheduledBadge}>Scheduled Roll</span>
+            <span style={styles.scheduledBadge}>Scheduled Roll (UTC)</span>
           </div>
           <p style={styles.scheduledMainText}>
             The NIST pulse for this roll will be published at:
@@ -294,7 +328,7 @@ export default function Dice(): React.ReactElement {
             </div>
           )}
           <p style={styles.scheduledNote}>
-            NIST generates pulses every 60 seconds with a ~25 second delay for digital signing and distribution. Once the countdown completes, click <strong>"Roll Dice / Generate"</strong> to retrieve the verifiable random result.
+            NIST generates pulses every 60 seconds (aligned to UTC minute boundaries) with a ~25 second delay for digital signing and distribution. Once the countdown completes, click <strong>"Roll Dice / Generate"</strong> to retrieve the verifiable random result.
           </p>
         </div>
       )}
@@ -309,7 +343,7 @@ export default function Dice(): React.ReactElement {
 
           <div style={styles.card}>
             <h3 style={styles.cardTitle}>1. NIST Pulse Details</h3>
-            <p><strong>Pulse Time (UTC):</strong> {data.pulseTimestamp}</p>
+            <p><strong>Pulse Time (UTC):</strong> {data.pulseTimestampUtc}</p>
             <p><strong>URI:</strong> <code style={styles.inlineCode}>{data.pulseUri}</code></p>
             <p style={{ wordBreak: 'break-all' }}>
               <strong>Raw 512-bit Hex Output:</strong>
@@ -371,9 +405,28 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     fontSize: '0.95rem',
   },
-  header: { marginBottom: '1.5rem', textAlign: 'center' },
+  header: { marginBottom: '1.25rem', textAlign: 'center' },
   title: { margin: '0 0 0.5rem 0', fontSize: '2rem' },
   subtext: { color: '#666', fontSize: '0.95rem', margin: 0 },
+  nomicInfoCard: {
+    backgroundColor: '#f1f8ff',
+    border: '1px solid #c8e1ff',
+    borderRadius: '8px',
+    padding: '1rem 1.25rem',
+    marginBottom: '1.5rem',
+  },
+  nomicTitle: {
+    margin: '0 0 0.5rem 0',
+    fontSize: '1.1rem',
+    color: '#0366d6',
+  },
+  nomicList: {
+    margin: 0,
+    paddingLeft: '1.25rem',
+    fontSize: '0.9rem',
+    lineHeight: '1.5',
+    color: '#24292e',
+  },
   form: {
     display: 'flex',
     flexDirection: 'column',
@@ -384,9 +437,24 @@ const styles: Record<string, React.CSSProperties> = {
     border: '1px solid #e9ecef',
   },
   row: { display: 'flex', gap: '1rem' },
+  labelRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  utcBadge: {
+    backgroundColor: '#0366d6',
+    color: '#fff',
+    fontSize: '0.7rem',
+    fontWeight: 'bold',
+    padding: '0.15rem 0.4rem',
+    borderRadius: '4px',
+    letterSpacing: '0.5px',
+  },
   timestampRow: { display: 'flex', gap: '0.5rem', alignItems: 'center' },
   inputGroup: { display: 'flex', flexDirection: 'column', flex: 1, gap: '0.25rem' },
   label: { fontSize: '0.875rem', fontWeight: 600, color: '#495057' },
+  helpText: { fontSize: '0.78rem', color: '#6c757d', marginTop: '0.15rem' },
   input: {
     padding: '0.5rem',
     borderRadius: '4px',
