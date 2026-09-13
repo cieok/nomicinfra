@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import ReactDOM from 'react-dom/client';
 
 // NIST Beacon 2.0 API Payload Type Definition
@@ -33,6 +33,7 @@ interface ScheduledRoll {
   targetTimestampMs: number;
   targetDateUtc: string;
   pulseUri: string;
+  shareableUrl: string;
 }
 
 // NIST pulse generation, signing & CDN propagation delay buffer in ms (25 seconds)
@@ -58,7 +59,7 @@ export default function Dice(): React.ReactElement {
     return isNaN(date.getTime()) ? '' : `${date.toUTCString()} (UTC)`;
   };
 
-  // Default initial timestamp set to current UTC time + 1 minutes
+  // Default initial timestamp set to current UTC time + 1 minute
   const [dateTimeUtc, setDateTimeUtc] = useState<string>(
     formatUtcDateTimeInput(new Date(Date.now() + 1 * 60 * 1000))
   );
@@ -70,6 +71,156 @@ export default function Dice(): React.ReactElement {
   const [scheduledRoll, setScheduledRoll] = useState<ScheduledRoll | null>(null);
   const [timeRemainingSeconds, setTimeRemainingSeconds] = useState<number | null>(null);
   const [data, setData] = useState<CalculationDetails | null>(null);
+
+  // Core function to execute roll logic given target parameters
+  const executeRoll = useCallback(
+    async (targetMs: number, minVal: string | number, maxVal: string | number) => {
+      setLoading(true);
+      setError(null);
+      setData(null);
+      setScheduledRoll(null);
+
+      const minNum = BigInt(minVal);
+      const maxNum = BigInt(maxVal);
+
+      if (minNum >= maxNum) {
+        setError('Minimum value must be strictly less than maximum value.');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        if (isNaN(targetMs)) {
+          throw new Error('Invalid UTC date/time timestamp.');
+        }
+
+        const expectedPulseUri = `https://beacon.nist.gov/beacon/2.0/pulse/time/${targetMs}`;
+        const searchParams = new URLSearchParams({
+          timestamp: targetMs.toString(),
+          min: minVal.toString(),
+          max: maxVal.toString(),
+        });
+        const currentShareableUrl = `${window.location.origin}${window.location.pathname}?${searchParams.toString()}`;
+
+        const now = Date.now();
+        const targetAvailableTimeMs = targetMs + NIST_DELAY_OFFSET_MS;
+
+        // Check if target UTC pulse time (+ 25s latency buffer) is in the future
+        if (now < targetAvailableTimeMs) {
+          setScheduledRoll({
+            targetTimestampMs: targetMs,
+            targetDateUtc: formatUtcDisplay(targetMs),
+            pulseUri: expectedPulseUri,
+            shareableUrl: currentShareableUrl,
+          });
+          setLoading(false);
+          return;
+        }
+
+        // Fetch pulse from NIST Beacon 2.0 API using UTC timestamp in ms
+        const response = await fetch(expectedPulseUri);
+
+        if (response.status === 404) {
+          setScheduledRoll({
+            targetTimestampMs: targetMs,
+            targetDateUtc: formatUtcDisplay(targetMs),
+            pulseUri: expectedPulseUri,
+            shareableUrl: currentShareableUrl,
+          });
+          setLoading(false);
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error(`NIST API error: ${response.status} ${response.statusText}`);
+        }
+
+        const pulseData: NistBeaconResponse = await response.json();
+        const pulse = pulseData.pulse;
+
+        if (!pulse?.outputValue) {
+          throw new Error('Invalid or empty pulse response from NIST Beacon.');
+        }
+
+        const hexOutput = pulse.outputValue;
+
+        // 512-bit arithmetic using BigInt
+        const bigIntValue = BigInt(`0x${hexOutput}`);
+        const rangeSpan = maxNum - minNum + 1n;
+        const moduloResult = bigIntValue % rangeSpan;
+        const finalRandomValue = minNum + moduloResult;
+
+        setData({
+          pulseTimestampUtc: formatUtcDisplay(pulse.timeStamp),
+          pulseUri: pulse.uri || expectedPulseUri,
+          hexOutput: hexOutput,
+          bigIntValue: bigIntValue.toString(),
+          min: minNum.toString(),
+          max: maxNum.toString(),
+          rangeSpan: rangeSpan.toString(),
+          moduloResult: moduloResult.toString(),
+          finalRandomValue: finalRandomValue.toString(),
+        });
+      } catch (err: unknown) {
+        if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError('An unexpected error occurred while processing.');
+        }
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
+  // On mount: Read URL parameters and perform roll automatically if timestamp parameter exists
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const timestampParam = params.get('timestamp');
+    const minParam = params.get('min');
+    const maxParam = params.get('max');
+
+    if (timestampParam) {
+      const parsedMs = parseInt(timestampParam, 10);
+      if (!isNaN(parsedMs)) {
+        const parsedDate = new Date(parsedMs);
+        setDateTimeUtc(formatUtcDateTimeInput(parsedDate));
+
+        const activeMin = minParam !== null ? minParam : min;
+        const activeMax = maxParam !== null ? maxParam : max;
+
+        if (minParam !== null) setMin(minParam);
+        if (maxParam !== null) setMax(maxParam);
+
+        executeRoll(parsedMs, activeMin, activeMax);
+      }
+    }
+  }, [executeRoll]);
+
+  // Handle manual form submissions and sync URL
+  const handleFetchAndCalculate = async (
+    e: React.FormEvent<HTMLFormElement>
+  ): Promise<void> => {
+    e.preventDefault();
+    const timestampMs = parseUtcTimestampMs(dateTimeUtc);
+
+    if (isNaN(timestampMs)) {
+      setError('Invalid UTC date/time selection.');
+      return;
+    }
+
+    // Update browser URL query parameters without triggering full page reload
+    const searchParams = new URLSearchParams(window.location.search);
+    searchParams.set('timestamp', timestampMs.toString());
+    searchParams.set('min', min.toString());
+    searchParams.set('max', max.toString());
+
+    const newUrl = `${window.location.pathname}?${searchParams.toString()}`;
+    window.history.pushState({ path: newUrl }, '', newUrl);
+
+    executeRoll(timestampMs, min, max);
+  };
 
   // Function to add 10 minutes (in UTC) to the currently displayed timestamp input
   const addTenMinutesToCurrentInput = (): void => {
@@ -104,100 +255,6 @@ export default function Dice(): React.ReactElement {
     const interval = setInterval(updateCountdown, 1000);
     return () => clearInterval(interval);
   }, [scheduledRoll]);
-
-  const handleFetchAndCalculate = async (
-    e: React.FormEvent<HTMLFormElement>
-  ): Promise<void> => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    setData(null);
-    setScheduledRoll(null);
-
-    const minNum = BigInt(min);
-    const maxNum = BigInt(max);
-
-    if (minNum >= maxNum) {
-      setError('Minimum value must be strictly less than maximum value.');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const timestampMs = parseUtcTimestampMs(dateTimeUtc);
-
-      if (isNaN(timestampMs)) {
-        throw new Error('Invalid UTC date/time selection.');
-      }
-
-      const expectedPulseUri = `https://beacon.nist.gov/beacon/2.0/pulse/time/${timestampMs}`;
-      const now = Date.now();
-      const targetAvailableTimeMs = timestampMs + NIST_DELAY_OFFSET_MS;
-
-      // Check if target UTC pulse time (+ 25s latency buffer) is in the future
-      if (now < targetAvailableTimeMs) {
-        setScheduledRoll({
-          targetTimestampMs: timestampMs,
-          targetDateUtc: formatUtcDisplay(timestampMs),
-          pulseUri: expectedPulseUri,
-        });
-        setLoading(false);
-        return;
-      }
-
-      // Fetch pulse from NIST Beacon 2.0 API using UTC timestamp in ms
-      const response = await fetch(expectedPulseUri);
-
-      if (response.status === 404) {
-        setScheduledRoll({
-          targetTimestampMs: timestampMs,
-          targetDateUtc: formatUtcDisplay(timestampMs),
-          pulseUri: expectedPulseUri,
-        });
-        setLoading(false);
-        return;
-      }
-
-      if (!response.ok) {
-        throw new Error(`NIST API error: ${response.status} ${response.statusText}`);
-      }
-
-      const pulseData: NistBeaconResponse = await response.json();
-      const pulse = pulseData.pulse;
-
-      if (!pulse?.outputValue) {
-        throw new Error('Invalid or empty pulse response from NIST Beacon.');
-      }
-
-      const hexOutput = pulse.outputValue;
-
-      // 512-bit arithmetic using BigInt
-      const bigIntValue = BigInt(`0x${hexOutput}`);
-      const rangeSpan = maxNum - minNum + 1n;
-      const moduloResult = bigIntValue % rangeSpan;
-      const finalRandomValue = minNum + moduloResult;
-
-      setData({
-        pulseTimestampUtc: formatUtcDisplay(pulse.timeStamp),
-        pulseUri: pulse.uri || expectedPulseUri,
-        hexOutput: hexOutput,
-        bigIntValue: bigIntValue.toString(),
-        min: minNum.toString(),
-        max: maxNum.toString(),
-        rangeSpan: rangeSpan.toString(),
-        moduloResult: moduloResult.toString(),
-        finalRandomValue: finalRandomValue.toString(),
-      });
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('An unexpected error occurred while processing.');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const formatCountdownText = (seconds: number | null): string => {
     if (seconds === null) return '';
@@ -239,15 +296,13 @@ export default function Dice(): React.ReactElement {
         <h2 style={styles.nomicTitle}>🎲 Why Use This for Online Nomic?</h2>
         <ul style={styles.nomicList}>
           <li>
-            <strong>Pre-Commitment Mechanism:</strong> Players can agree on a target UTC timestamp <em>in advance</em> (e.g., "The turn 14 roll will
-             use the NIST pulse at 18:00 UTC"). Because the future pulse output is mathematically unpredictable by anyone prior to release, no 
-             player can choose when to roll or delete roll based on favorable odds.
+            <strong>Pre-Commitment Mechanism:</strong> Players can agree on a target UTC timestamp <em>in advance</em> (e.g., "The turn 14 roll will use the NIST pulse at 18:00 UTC"). Because the future pulse output is mathematically unpredictable by anyone prior to release, no player can choose when to roll or delete roll based on favorable odds.
           </li>
           <li>
             <strong>Verifiable & Anti-Cheat:</strong> NIST pulses are cryptographically signed using RSA/SHA-512 by a government agency, making them impossible to alter if you have no control over the agency.
           </li>
           <li>
-            <strong>Asynchronous Friendly:</strong> Ideal for play-by-forum or play-by-mail Nomic. Anyone can independently calculate and verify the exact same outcome from the NIST archive using the exact deterministic formula shown after a succesful roll.
+            <strong>Asynchronous Friendly:</strong> Ideal for play-by-forum or play-by-mail Nomic. Anyone can independently calculate and verify the exact same outcome from the NIST archive using the exact deterministic formula shown after a successful roll.
           </li>
         </ul>
       </section>
@@ -323,7 +378,20 @@ export default function Dice(): React.ReactElement {
             The NIST pulse for this roll will be published at:
           </p>
           <p style={styles.scheduledTimeText}>{scheduledRoll.targetDateUtc}</p>
-          
+
+          <p style={{ margin: '0.75rem 0 0.5rem 0' }}>
+            <strong>Game Roll URL (Share with Players):</strong>
+            <br />
+            <a
+              href={scheduledRoll.shareableUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={styles.backLink}
+            >
+              <code style={styles.inlineCode}>{scheduledRoll.shareableUrl}</code>
+            </a>
+          </p>
+
           <p style={{ margin: '0.5rem 0 1rem 0' }}>
             <strong>Target Pulse URI:</strong>{' '}
             <a
