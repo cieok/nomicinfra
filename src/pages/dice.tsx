@@ -34,8 +34,8 @@ interface ScheduledRoll {
   targetDateUtc: string;
 }
 
-// NIST pulse generation & API release latency buffer in milliseconds (10 seconds)
-const NIST_DELAY_OFFSET_MS = 10 * 1000;
+// NIST pulse generation, signing & CDN propagation delay buffer in ms (25 seconds)
+const NIST_DELAY_OFFSET_MS = 25 * 1000;
 
 export default function Dice(): React.ReactElement {
   // Helper to format a Date into datetime-local string format (YYYY-MM-THH:mm)
@@ -70,7 +70,7 @@ export default function Dice(): React.ReactElement {
     setDateTime(formatLocalDateTime(futureDate));
   };
 
-  // Timer countdown for future rolls including NIST delay buffer
+  // Timer countdown for future rolls including NIST 25s latency buffer
   useEffect(() => {
     if (!scheduledRoll) {
       setTimeRemainingSeconds(null);
@@ -78,7 +78,7 @@ export default function Dice(): React.ReactElement {
     }
 
     const updateCountdown = () => {
-      // Add the 10-second NIST release delay to target availability time
+      // Add the 25-second NIST release delay to target availability time
       const availabilityTimeMs = scheduledRoll.targetTimestampMs + NIST_DELAY_OFFSET_MS;
       const diffMs = availabilityTimeMs - Date.now();
       if (diffMs <= 0) {
@@ -119,7 +119,7 @@ export default function Dice(): React.ReactElement {
       }
 
       const now = Date.now();
-      // Require current time to be at least (timestamp + 10 second NIST publication delay)
+      // Require current time to be at least (timestamp + 25 second NIST publication delay)
       const targetAvailableTimeMs = timestampMs + NIST_DELAY_OFFSET_MS;
 
       // Check if selected time + delay is in the future
@@ -194,9 +194,9 @@ export default function Dice(): React.ReactElement {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     if (mins > 0) {
-      return `${mins}m ${secs}s remaining (incl. ~10s NIST publishing delay)`;
+      return `${mins}m ${secs}s remaining (incl. ~25s NIST release buffer)`;
     }
-    return `${secs}s remaining (incl. ~10s NIST publishing delay)`;
+    return `${secs}s remaining (incl. ~25s NIST release buffer)`;
   };
 
   return (
@@ -294,7 +294,7 @@ export default function Dice(): React.ReactElement {
             </div>
           )}
           <p style={styles.scheduledNote}>
-            NIST generates pulses every 60 seconds with a ~10 second delay for signing and propagation. Once the countdown completes, click <strong>"Roll Dice / Generate"</strong> to retrieve the verifiable random result.
+            NIST generates pulses every 60 seconds with a ~25 second delay for digital signing and distribution. Once the countdown completes, click <strong>"Roll Dice / Generate"</strong> to retrieve the verifiable random result.
           </p>
         </div>
       )}
