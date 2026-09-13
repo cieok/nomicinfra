@@ -152,7 +152,7 @@ export default function Dice(): React.ReactElement {
 
         setData({
           pulseTimestampUtc: formatUtcDisplay(pulse.timeStamp),
-          pulseUri: pulse.uri || expectedPulseUri,
+          pulseUri: expectedPulseUri,
           hexOutput: hexOutput,
           bigIntValue: bigIntValue.toString(),
           min: minNum.toString(),
