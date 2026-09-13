@@ -36,8 +36,8 @@ interface ScheduledRoll {
   shareableUrl: string;
 }
 
-// NIST pulse generation, signing & CDN propagation delay buffer in ms (25 seconds)
-const NIST_DELAY_OFFSET_MS = 25 * 1000;
+// NIST pulse generation, signing & CDN propagation delay buffer in ms (30 seconds)
+const NIST_DELAY_OFFSET_MS = 30 * 1000;
 
 export default function Dice(): React.ReactElement {
   // Helper to format a Date into UTC YYYY-MM-DDTHH:mm string format for <input>
@@ -105,7 +105,7 @@ export default function Dice(): React.ReactElement {
         const now = Date.now();
         const targetAvailableTimeMs = targetMs + NIST_DELAY_OFFSET_MS;
 
-        // Check if target UTC pulse time (+ 25s latency buffer) is in the future
+        // Check if target UTC pulse time (+ 30s latency buffer) is in the future
         if (now < targetAvailableTimeMs) {
           setScheduledRoll({
             targetTimestampMs: targetMs,
@@ -234,7 +234,7 @@ export default function Dice(): React.ReactElement {
     setDateTimeUtc(formatUtcDateTimeInput(futureDate));
   };
 
-  // Timer countdown for future rolls including NIST 25s latency buffer
+  // Timer countdown for future rolls including NIST 30s latency buffer
   useEffect(() => {
     if (!scheduledRoll) {
       setTimeRemainingSeconds(null);
@@ -262,9 +262,9 @@ export default function Dice(): React.ReactElement {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     if (mins > 0) {
-      return `${mins}m ${secs}s remaining (incl. ~25s NIST release buffer)`;
+      return `${mins}m ${secs}s remaining (incl. ~30s NIST release buffer)`;
     }
-    return `${secs}s remaining (incl. ~25s NIST release buffer)`;
+    return `${secs}s remaining (incl. ~30s NIST release buffer)`;
   };
 
   return (
@@ -410,7 +410,7 @@ export default function Dice(): React.ReactElement {
             </div>
           )}
           <p style={styles.scheduledNote}>
-            NIST generates pulses every 60 seconds (aligned to UTC minute boundaries) with a ~25 second delay for digital signing and distribution. Once the countdown completes, click <strong>"Roll Dice / Generate"</strong> to retrieve the verifiable random result.
+            NIST generates pulses every 60 seconds (aligned to UTC minute boundaries) with a ~30 second delay for digital signing and distribution. Once the countdown completes, click <strong>"Roll Dice / Generate"</strong> to retrieve the verifiable random result.
           </p>
         </div>
       )}
