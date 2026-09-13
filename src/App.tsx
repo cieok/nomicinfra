@@ -33,6 +33,26 @@ export function App() {
     };
   }, [rulesets]);
 
+  // Find the largest ruleset word count across all loaded rulesets
+  const maxRulesetWords = useMemo(() => {
+    let max = 0;
+    rulesets.forEach((r) => {
+      const metrics = dataMap[r.id];
+      if (metrics && !metrics.loading && !metrics.error && metrics.words > max) {
+        max = metrics.words;
+      }
+    });
+    return max || 1;
+  }, [rulesets, dataMap]);
+
+  // Square root scaling: Provides a balanced compression between linear and logarithmic scale
+  const getScaledSizePct = (words: number) => {
+    if (!words || words <= 0) return 0;
+    const sqrtVal = Math.sqrt(words);
+    const sqrtMax = Math.sqrt(maxRulesetWords);
+    return Math.min(100, Math.max(0, (sqrtVal / sqrtMax) * 100));
+  };
+
   const currentRuleset = rulesets.find((r) => r.id === activeTabId) || rulesets[0];
   const currentMetrics = dataMap[currentRuleset?.id];
 
@@ -57,6 +77,7 @@ export function App() {
             ruleset: other,
             score: null,
             sizeText: null,
+            otherWords: 0,
             indicatorColor: 'inherit',
             error: otherMetrics?.error || 'Loading...',
           };
@@ -70,6 +91,7 @@ export function App() {
           ruleset: other,
           score,
           sizeText,
+          otherWords: otherMetrics.words,
           indicatorColor,
           error: null,
         };
@@ -204,6 +226,14 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  };
+
+  const currentSizePct = getScaledSizePct(currentMetrics?.words);
+
+  // Custom inline style for size progress bar fills
+  const sizeBarStyle: React.CSSProperties = {
+    backgroundColor: '#00b4d8', // Distinct teal/cyan color for size bars
+    backgroundImage: 'linear-[#0077b6], #00b4d8)',
   };
 
   return (
@@ -349,6 +379,15 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
                 <div className="metric-card">
                   <div className="metric-label">Ruleset size</div>
                   <div className="metric-value">{currentMetrics.words.toLocaleString()} words</div>
+                  <div className="progress-bar-track size-bar-track" style={{ marginTop: '8px' }}>
+                    <div
+                      className="progress-bar-fill size-bar-fill"
+                      style={{
+                        ...sizeBarStyle,
+                        '--progress-width': `${currentSizePct}%`,
+                      } as React.CSSProperties}
+                    />
+                  </div>
                 </div>
                 <div className="metric-card">
                   <div className="metric-label">Unique words</div>
@@ -376,48 +415,62 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
 
                 <div className="comparisons-list">
                   {comparisons.length > 0 ? (
-                    comparisons.map(({ ruleset, score, sizeText, indicatorColor, error }) => (
-                      <div key={ruleset.id} className="comparison-item">
-                        <div className="comparison-header">
-                          <div className="comparison-title-container">
-                            <button
-                              onClick={() => handleSelectRuleset(ruleset.id)}
-                              className="comparison-title-button"
-                            >
-                              {ruleset.name}
-                            </button>
-                            {ruleset.category === 'Templates' ? (
-                              <span className="template-badge badge-template-small">Template</span>
-                            ) : (
-                              <span
-                                className="badge-game"
-                                style={{
-                                  color: indicatorColor !== 'inherit' ? indicatorColor : 'var(--text-secondary, #666)',
-                                  background: indicatorColor !== 'inherit' ? `${indicatorColor}15` : 'rgba(0,0,0,0.05)',
-                                  fontWeight: indicatorColor !== 'inherit' ? 600 : 400,
-                                }}
+                    comparisons.map(({ ruleset, score, sizeText, otherWords, indicatorColor, error }) => {
+                      const otherSizePct = getScaledSizePct(otherWords);
+                      return (
+                        <div key={ruleset.id} className="comparison-item">
+                          <div className="comparison-header">
+                            <div className="comparison-title-container">
+                              <button
+                                onClick={() => handleSelectRuleset(ruleset.id)}
+                                className="comparison-title-button"
                               >
-                                Game
-                              </span>
-                            )}
+                                {ruleset.name}
+                              </button>
+                              {ruleset.category === 'Templates' ? (
+                                <span className="template-badge badge-template-small">Template</span>
+                              ) : (
+                                <span
+                                  className="badge-game"
+                                  style={{
+                                    color: indicatorColor !== 'inherit' ? indicatorColor : 'var(--text-secondary, #666)',
+                                    background: indicatorColor !== 'inherit' ? `${indicatorColor}15` : 'rgba(0,0,0,0.05)',
+                                    fontWeight: indicatorColor !== 'inherit' ? 600 : 400,
+                                  }}
+                                >
+                                  Game
+                                </span>
+                              )}
+                            </div>
+                            <span>{score !== null ? `${score.toFixed(1)}% match` : error}</span>
                           </div>
-                          <span>{score !== null ? `${score.toFixed(1)}% match` : error}</span>
+
+                          {score !== null && (
+                            <div className="progress-bar-track">
+                              <div
+                                className="progress-bar-fill"
+                                style={{ '--progress-width': `${Math.min(100, Math.max(0, score))}%` } as React.CSSProperties}
+                              />
+                            </div>
+                          )}
+
+                          {score !== null && sizeText !== null && (
+                            <div style={{ marginTop: '6px' }}>
+                              <div className="comparison-size">Size: {sizeText} ({otherWords.toLocaleString()} words)</div>
+                              <div className="progress-bar-track size-bar-track" style={{ height: '4px', marginTop: '4px' }}>
+                                <div
+                                  className="progress-bar-fill size-bar-fill"
+                                  style={{
+                                    ...sizeBarStyle,
+                                    '--progress-width': `${otherSizePct}%`,
+                                  } as React.CSSProperties}
+                                />
+                              </div>
+                            </div>
+                          )}
                         </div>
-
-                        {score !== null && (
-                          <div className="progress-bar-track">
-                            <div
-                              className="progress-bar-fill"
-                              style={{ '--progress-width': `${Math.min(100, Math.max(0, score))}%` } as React.CSSProperties}
-                            />
-                          </div>
-                        )}
-
-                        {score !== null && sizeText !== null && (
-                          <div className="comparison-size">Size: {sizeText}</div>
-                        )}
-                      </div>
-                    ))
+                      );
+                    })
                   ) : (
                     <span className="empty-words-text">No matching rulesets found for this filter.</span>
                   )}
