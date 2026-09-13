@@ -380,7 +380,7 @@ export default function Dice(): React.ReactElement {
           <p style={styles.scheduledTimeText}>{scheduledRoll.targetDateUtc}</p>
 
           <p style={{ margin: '0.75rem 0 0.5rem 0' }}>
-            <strong>Game Roll URL (Share with Players):</strong>
+            <strong>Future Dice Roll URL (Share with Players):</strong>
             <br />
             <a
               href={scheduledRoll.shareableUrl}
