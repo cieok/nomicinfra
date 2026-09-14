@@ -17,6 +17,13 @@ interface NistBeaconResponse {
   pulse: NistPulse;
 }
 
+interface AttemptRecord {
+  attemptIndex: number;
+  hexSlice: string;
+  decimalValue: string;
+  accepted: boolean;
+}
+
 interface CalculationDetails {
   pulseTimestampUtc: string;
   pulseUri: string;
@@ -32,6 +39,7 @@ interface CalculationDetails {
   totalAttempts: string;
   limit: string;
   capacity: string;
+  attemptsLog: AttemptRecord[];
 }
 
 interface ScheduledRoll {
@@ -169,14 +177,23 @@ export default function Dice(): React.ReactElement {
         let usedHexSlice = '';
         let totalAttempts = 0;
         let bigIntValue = 0n;
+        const attemptsLog: AttemptRecord[] = [];
 
         // Iterate through hex string in chunks of minimal hex length
         for (let i = 0; i + hexCharsNeeded <= hexOutput.length; i += hexCharsNeeded) {
           totalAttempts++;
           const slice = hexOutput.substring(i, i + hexCharsNeeded);
           const val = BigInt(`0x${slice}`);
+          const isAccepted = val < limit;
 
-          if (val < limit) {
+          attemptsLog.push({
+            attemptIndex: totalAttempts,
+            hexSlice: slice,
+            decimalValue: val.toString(),
+            accepted: isAccepted,
+          });
+
+          if (isAccepted) {
             selectedOffset = val % rangeSpan;
             usedHexSlice = slice;
             bigIntValue = val;
@@ -207,6 +224,7 @@ export default function Dice(): React.ReactElement {
           totalAttempts: totalAttempts.toString(),
           limit: limit.toString(),
           capacity: sliceMaxCapacity.toString(),
+          attemptsLog,
         });
       } catch (err: unknown) {
         if (err instanceof Error) {
@@ -537,22 +555,38 @@ export default function Dice(): React.ReactElement {
               </div>
             </div>
 
-            {/* Step C */}
+            {/* Step C: Rejection Sampling Log */}
             <div style={styles.stepBox}>
               <div style={styles.stepHeader}>
                 <span style={styles.stepBadge}>Step C</span>
-                <strong>Evaluate Slice Attempt #{data.totalAttempts}</strong>
+                <strong>Rejection Sampling Attempts ({data.totalAttempts} total)</strong>
               </div>
               <p style={styles.stepDescription}>
-                Extract the first {data.hexCharsNeeded}-character hex slice from the pulse output and convert to decimal X.
+                Sequential evaluation of {data.hexCharsNeeded}-character hex slices from the output pulse. Slices ≥ {data.limit} are discarded.
               </p>
-              <div style={styles.formulaBlock}>
-                <div>Selected Chunk: <code style={styles.inlineCode}>"0x{data.usedHexSlice}"</code></div>
-                <div>Decimal Value (X) = <strong>{data.bigIntValue}</strong></div>
-                <div style={styles.statusCheck}>
-                  Validation Check: {data.bigIntValue} &lt; {data.limit} 
-                  <span style={styles.validBadge}>✓ ACCEPTED (No Modulo Bias)</span>
-                </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {data.attemptsLog.map((attempt) => (
+                  <div
+                    key={attempt.attemptIndex}
+                    style={{
+                      ...styles.formulaBlock,
+                      borderLeft: attempt.accepted ? '4px solid #2b8a3e' : '4px solid #e03131',
+                      backgroundColor: attempt.accepted ? '#f8f9fa' : '#fff5f5',
+                    }}
+                  >
+                    <div>
+                      <strong>Attempt #{attempt.attemptIndex}:</strong> Chunk <code style={styles.inlineCode}>"0x{attempt.hexSlice}"</code> → Decimal (X) = <strong>{attempt.decimalValue}</strong>
+                    </div>
+                    <div style={styles.statusCheck}>
+                      Validation: {attempt.decimalValue} {attempt.accepted ? '<' : '≥'} {data.limit}{' '}
+                      {attempt.accepted ? (
+                        <span style={styles.validBadge}>✓ ACCEPTED</span>
+                      ) : (
+                        <span style={styles.rejectedBadge}>✕ REJECTED (Modulo Bias)</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -823,6 +857,14 @@ const styles: Record<string, React.CSSProperties> = {
   validBadge: {
     color: '#2b8a3e',
     backgroundColor: '#d3f9d8',
+    padding: '0.1rem 0.4rem',
+    borderRadius: '4px',
+    marginLeft: '0.5rem',
+    fontSize: '0.75rem',
+  },
+  rejectedBadge: {
+    color: '#e03131',
+    backgroundColor: '#ffe3e3',
     padding: '0.1rem 0.4rem',
     borderRadius: '4px',
     marginLeft: '0.5rem',
