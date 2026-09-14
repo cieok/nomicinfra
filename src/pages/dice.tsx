@@ -465,16 +465,23 @@ export default function Dice(): React.ReactElement {
       {/* Results & Calculations */}
       {data && (
         <div style={styles.resultsContainer}>
+          {/* Prominent Result Header */}
           <div style={styles.resultBadge}>
-            <span style={styles.badgeLabel}>Random Value</span>
+            <span style={styles.badgeLabel}>Final Random Roll</span>
             <span style={styles.badgeValue}>{data.finalRandomValue}</span>
+            <span style={styles.badgeSubtext}>
+              Valid range: [{data.min} to {data.max}]
+            </span>
           </div>
 
+          {/* Section 1: NIST Source Data */}
           <div style={styles.card}>
-            <h3 style={styles.cardTitle}>1. NIST Pulse Details</h3>
-            <p><strong>Pulse Time (UTC):</strong> {data.pulseTimestampUtc}</p>
-            <p>
-              <strong>URI:</strong>{' '}
+            <h3 style={styles.cardTitle}>1. NIST Pulse Entropy Source</h3>
+            <div style={styles.detailRow}>
+              <strong>Pulse Time (UTC):</strong> <span>{data.pulseTimestampUtc}</span>
+            </div>
+            <div style={styles.detailRow}>
+              <strong>Verification URI:</strong>{' '}
               <a
                 href={data.pulseUri}
                 target="_blank"
@@ -483,42 +490,86 @@ export default function Dice(): React.ReactElement {
               >
                 <code style={styles.inlineCode}>{data.pulseUri}</code>
               </a>
-            </p>
-            <p style={{ wordBreak: 'break-all' }}>
-              <strong>Raw 512-bit Hex Output:</strong>
-              <br />
+            </div>
+            <div style={{ marginTop: '0.75rem' }}>
+              <strong>Raw 512-bit Hex Output (64 bytes):</strong>
               <code style={styles.codeBlock}>{data.hexOutput}</code>
-            </p>
+            </div>
           </div>
 
+          {/* Section 2: Step-by-Step Unbiased Calculation */}
           <div style={styles.card}>
-            <h3 style={styles.cardTitle}>2. Step-by-Step Unbiased Calculation</h3>
+            <h3 style={styles.cardTitle}>2. Cryptographic Mapping & Verification</h3>
+            <p style={styles.sectionExplainer}>
+              To guarantee fair outcomes without <strong>Modulo Bias</strong>, we use <em>rejection sampling</em>. 
+              We slice minimal hex chunks from the 512-bit output and reject values falling into uneven remainder zones.
+            </p>
 
-            <p><strong>Step A: Calculate Range Size (N) & Minimal Hex Needed</strong></p>
-            <code style={styles.codeBlock}>
-              N = Max - Min + 1 = {data.max} - {data.min} + 1 = {data.rangeSpan}
-              <br />
-              Minimal Hex Length: {data.hexCharsNeeded} char(s) (Capacity: {data.capacity})
-            </code>
+            {/* Step A */}
+            <div style={styles.stepBox}>
+              <div style={styles.stepHeader}>
+                <span style={styles.stepBadge}>Step A</span>
+                <strong>Determine Range & Minimal Hex Chunk Size</strong>
+              </div>
+              <p style={styles.stepDescription}>
+                Calculate the span N and find the minimum number of hex characters needed to represent N - 1.
+              </p>
+              <div style={styles.formulaBlock}>
+                <div>Span (N) = Max - Min + 1 = <strong>{data.rangeSpan}</strong> possible values</div>
+                <div>Hex Characters Needed = <strong>{data.hexCharsNeeded}</strong> char(s) (1 char = 4 bits)</div>
+                <div>Maximum Chunk Capacity (16<sup>{data.hexCharsNeeded}</sup>) = <strong>{data.capacity}</strong></div>
+              </div>
+            </div>
 
-            <p><strong>Step B: Rejection Limit Threshold</strong></p>
-            <code style={styles.codeBlock}>
-              Limit = floor(Capacity / N) * N = {data.limit}
-            </code>
+            {/* Step B */}
+            <div style={styles.stepBox}>
+              <div style={styles.stepHeader}>
+                <span style={styles.stepBadge}>Step B</span>
+                <strong>Calculate Unbiased Rejection Limit</strong>
+              </div>
+              <p style={styles.stepDescription}>
+                The rejection limit is the largest multiple of N that fits within total capacity. 
+                Values strictly less than this limit guarantee equal probability for every number.
+              </p>
+              <div style={styles.formulaBlock}>
+                <div>Limit = floor(Capacity / N) × N</div>
+                <div>Limit = floor({data.capacity} / {data.rangeSpan}) × {data.rangeSpan} = <strong>{data.limit}</strong></div>
+              </div>
+            </div>
 
-            <p><strong>Step C: Sliced Hex Chunk & Verification (Attempt #{data.totalAttempts})</strong></p>
-            <code style={styles.codeBlock}>
-              Selected Hex Slice: "0x{data.usedHexSlice}" (Decimal X = {data.bigIntValue})
-              <br />
-              Acceptance Check: {data.bigIntValue} &lt; {data.limit} (Valid - No Modulo Bias)
-            </code>
+            {/* Step C */}
+            <div style={styles.stepBox}>
+              <div style={styles.stepHeader}>
+                <span style={styles.stepBadge}>Step C</span>
+                <strong>Evaluate Slice Attempt #{data.totalAttempts}</strong>
+              </div>
+              <p style={styles.stepDescription}>
+                Extract the first {data.hexCharsNeeded}-character hex slice from the pulse output and convert to decimal X.
+              </p>
+              <div style={styles.formulaBlock}>
+                <div>Selected Chunk: <code style={styles.inlineCode}>"0x{data.usedHexSlice}"</code></div>
+                <div>Decimal Value (X) = <strong>{data.bigIntValue}</strong></div>
+                <div style={styles.statusCheck}>
+                  Validation Check: {data.bigIntValue} &lt; {data.limit} 
+                  <span style={styles.validBadge}>✓ ACCEPTED (No Modulo Bias)</span>
+                </div>
+              </div>
+            </div>
 
-            <p><strong>Step D: Map Selected Value to Target Range</strong></p>
-            <code style={styles.codeBlock}>
-              Offset = {data.bigIntValue} % {data.rangeSpan} = {data.moduloResult}
-              <br />
-              Result = Min + Offset = {data.min} + {data.moduloResult} = {data.finalRandomValue}
-            </code>
+            {/* Step D */}
+            <div style={styles.stepBox}>
+              <div style={styles.stepHeader}>
+                <span style={styles.stepBadge}>Step D</span>
+                <strong>Map Offset to Output Range</strong>
+              </div>
+              <p style={styles.stepDescription}>
+                Map the validated decimal value into your desired range using modulo arithmetic.
+              </p>
+              <div style={styles.formulaBlock}>
+                <div>Offset Index = X mod N = {data.bigIntValue} mod {data.rangeSpan} = <strong>{data.moduloResult}</strong></div>
+                <div>Final Result = Min + Offset = {data.min} + {data.moduloResult} = <strong style={styles.finalHighlight}>{data.finalRandomValue}</strong></div>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -700,6 +751,11 @@ const styles: Record<string, React.CSSProperties> = {
   },
   badgeLabel: { fontSize: '0.875rem', color: '#1864ab', textTransform: 'uppercase', fontWeight: 'bold' },
   badgeValue: { fontSize: '3rem', fontWeight: 'bold', color: '#1864ab' },
+  badgeSubtext: {
+    fontSize: '0.85rem',
+    color: '#495057',
+    marginTop: '0.25rem',
+  },
   card: {
     backgroundColor: '#fff',
     border: '1px solid #dee2e6',
@@ -707,6 +763,75 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '1.25rem',
   },
   cardTitle: { marginTop: 0, marginBottom: '0.75rem', fontSize: '1.1rem' },
+  detailRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    padding: '0.35rem 0',
+    borderBottom: '1px solid #f1f3f5',
+    fontSize: '0.9rem',
+  },
+  sectionExplainer: {
+    fontSize: '0.875rem',
+    color: '#495057',
+    lineHeight: 1.5,
+    marginBottom: '1rem',
+  },
+  stepBox: {
+    backgroundColor: '#f8f9fa',
+    border: '1px solid #e9ecef',
+    borderRadius: '6px',
+    padding: '0.85rem 1rem',
+    marginBottom: '0.85rem',
+  },
+  stepHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    marginBottom: '0.35rem',
+    fontSize: '0.95rem',
+  },
+  stepBadge: {
+    backgroundColor: '#495057',
+    color: '#fff',
+    fontSize: '0.7rem',
+    fontWeight: 'bold',
+    padding: '0.15rem 0.45rem',
+    borderRadius: '4px',
+  },
+  stepDescription: {
+    margin: '0 0 0.5rem 0',
+    fontSize: '0.825rem',
+    color: '#6c757d',
+  },
+  formulaBlock: {
+    backgroundColor: '#fff',
+    border: '1px solid #dee2e6',
+    borderRadius: '4px',
+    padding: '0.6rem 0.75rem',
+    fontFamily: 'monospace',
+    fontSize: '0.85rem',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.35rem',
+  },
+  statusCheck: {
+    marginTop: '0.25rem',
+    paddingTop: '0.25rem',
+    borderTop: '1px dashed #dee2e6',
+    fontWeight: 'bold',
+  },
+  validBadge: {
+    color: '#2b8a3e',
+    backgroundColor: '#d3f9d8',
+    padding: '0.1rem 0.4rem',
+    borderRadius: '4px',
+    marginLeft: '0.5rem',
+    fontSize: '0.75rem',
+  },
+  finalHighlight: {
+    color: '#1864ab',
+    fontSize: '1rem',
+  },
   inlineCode: { background: '#f1f3f5', padding: '0.2rem 0.4rem', borderRadius: '4px' },
   codeBlock: {
     display: 'block',
