@@ -27,6 +27,11 @@ interface CalculationDetails {
   rangeSpan: string;
   moduloResult: string;
   finalRandomValue: string;
+  hexCharsNeeded: string;
+  usedHexSlice: string;
+  totalAttempts: string;
+  limit: string;
+  capacity: string;
 }
 
 interface ScheduledRoll {
@@ -142,13 +147,50 @@ export default function Dice(): React.ReactElement {
           throw new Error('Invalid or empty pulse response from NIST Beacon.');
         }
 
-        const hexOutput = pulse.outputValue;
+        const hexOutput = pulse.outputValue.trim().toLowerCase();
 
-        // 512-bit arithmetic using BigInt
-        const bigIntValue = BigInt(`0x${hexOutput}`);
+        // --- Rejection Sampling with Minimal Hex Slicing ---
         const rangeSpan = maxNum - minNum + 1n;
-        const moduloResult = bigIntValue % rangeSpan;
-        const finalRandomValue = minNum + moduloResult;
+
+        // Minimal bit length required for max offset index (rangeSpan - 1)
+        const maxOffsetIndex = rangeSpan - 1n;
+        const bitLength = BigInt(maxOffsetIndex.toString(2).length);
+
+        // Minimal hex characters (nibbles) required (4 bits per hex character)
+        const hexCharsNeeded = Number((bitLength + 3n) / 4n);
+
+        // Maximum capacity represented by hexCharsNeeded (16^hexCharsNeeded)
+        const sliceMaxCapacity = 1n << BigInt(hexCharsNeeded * 4);
+
+        // Rejection limit: largest multiple of rangeSpan below sliceMaxCapacity
+        const limit = (sliceMaxCapacity / rangeSpan) * rangeSpan;
+
+        let selectedOffset: bigint | null = null;
+        let usedHexSlice = '';
+        let totalAttempts = 0;
+        let bigIntValue = 0n;
+
+        // Iterate through hex string in chunks of minimal hex length
+        for (let i = 0; i + hexCharsNeeded <= hexOutput.length; i += hexCharsNeeded) {
+          totalAttempts++;
+          const slice = hexOutput.substring(i, i + hexCharsNeeded);
+          const val = BigInt(`0x${slice}`);
+
+          if (val < limit) {
+            selectedOffset = val % rangeSpan;
+            usedHexSlice = slice;
+            bigIntValue = val;
+            break;
+          }
+        }
+
+        if (selectedOffset === null) {
+          throw new Error(
+            `Rejection sampling exhausted all ${totalAttempts} hex slices without an unbiased value.`
+          );
+        }
+
+        const finalRandomValue = minNum + selectedOffset;
 
         setData({
           pulseTimestampUtc: formatUtcDisplay(pulse.timeStamp),
@@ -158,8 +200,13 @@ export default function Dice(): React.ReactElement {
           min: minNum.toString(),
           max: maxNum.toString(),
           rangeSpan: rangeSpan.toString(),
-          moduloResult: moduloResult.toString(),
+          moduloResult: selectedOffset.toString(),
           finalRandomValue: finalRandomValue.toString(),
+          hexCharsNeeded: hexCharsNeeded.toString(),
+          usedHexSlice,
+          totalAttempts: totalAttempts.toString(),
+          limit: limit.toString(),
+          capacity: sliceMaxCapacity.toString(),
         });
       } catch (err: unknown) {
         if (err instanceof Error) {
@@ -299,10 +346,10 @@ export default function Dice(): React.ReactElement {
             <strong>Pre-Commitment Mechanism:</strong> Players can agree on a target UTC timestamp <em>in advance</em> (e.g., "The turn 14 roll will use the NIST pulse at 18:00 UTC"). Because the future pulse output is mathematically unpredictable by anyone prior to release, no player can choose when to roll or delete roll based on favorable odds.
           </li>
           <li>
-            <strong>Verifiable & Anti-Cheat:</strong> NIST pulses are cryptographically signed using RSA/SHA-512 by a government agency, making them impossible to alter if you have no control over the agency.
+            <strong>Asynchronous Friendly:</strong> Ideal for play-by-forum or play-by-mail Nomic. Anyone can independently calculate and verify the exact same outcome from the NIST archive using the exact deterministic formula shown after a successful roll.
           </li>
           <li>
-            <strong>Asynchronous Friendly:</strong> Ideal for play-by-forum or play-by-mail Nomic. Anyone can independently calculate and verify the exact same outcome from the NIST archive using the exact deterministic formula shown after a successful roll.
+            <strong>Verifiable & Anti-Cheat:</strong> NIST pulses are cryptographically signed using RSA/SHA-512 by a government agency, making them impossible to alter if you have no control over the agency.
           </li>
         </ul>
       </section>
@@ -445,24 +492,32 @@ export default function Dice(): React.ReactElement {
           </div>
 
           <div style={styles.card}>
-            <h3 style={styles.cardTitle}>2. Step-by-Step Calculation</h3>
+            <h3 style={styles.cardTitle}>2. Step-by-Step Unbiased Calculation</h3>
 
-            <p><strong>Step A: Convert Hex Output to 512-bit Decimal (X)</strong></p>
-            <code style={styles.codeBlock}>X = {data.bigIntValue}</code>
-
-            <p><strong>Step B: Calculate Range Size (N)</strong></p>
+            <p><strong>Step A: Calculate Range Size (N) & Minimal Hex Needed</strong></p>
             <code style={styles.codeBlock}>
               N = Max - Min + 1 = {data.max} - {data.min} + 1 = {data.rangeSpan}
+              <br />
+              Minimal Hex Length: {data.hexCharsNeeded} char(s) (Capacity: {data.capacity})
             </code>
 
-            <p><strong>Step C: Compute Modulo Offset (Offset = X mod N)</strong></p>
+            <p><strong>Step B: Rejection Limit Threshold</strong></p>
+            <code style={styles.codeBlock}>
+              Limit = floor(Capacity / N) * N = {data.limit}
+            </code>
+
+            <p><strong>Step C: Sliced Hex Chunk & Verification (Attempt #{data.totalAttempts})</strong></p>
+            <code style={styles.codeBlock}>
+              Selected Hex Slice: "0x{data.usedHexSlice}" (Decimal X = {data.bigIntValue})
+              <br />
+              Acceptance Check: {data.bigIntValue} &lt; {data.limit} (Valid - No Modulo Bias)
+            </code>
+
+            <p><strong>Step D: Map Selected Value to Target Range</strong></p>
             <code style={styles.codeBlock}>
               Offset = {data.bigIntValue} % {data.rangeSpan} = {data.moduloResult}
-            </code>
-
-            <p><strong>Step D: Map to Selected Range (Result = Min + Offset)</strong></p>
-            <code style={styles.codeBlock}>
-              Result = {data.min} + {data.moduloResult} = {data.finalRandomValue}
+              <br />
+              Result = Min + Offset = {data.min} + {data.moduloResult} = {data.finalRandomValue}
             </code>
           </div>
         </div>
