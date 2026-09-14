@@ -578,7 +578,7 @@ export default function Dice(): React.ReactElement {
                       <strong>Attempt #{attempt.attemptIndex}:</strong> Chunk <code style={styles.inlineCode}>"0x{attempt.hexSlice}"</code> → Decimal (X) = <strong>{attempt.decimalValue}</strong>
                     </div>
                     <div style={styles.statusCheck}>
-                      Validation: {attempt.decimalValue} {attempt.accepted ? '<' : '≥'} {data.limit}{' '}
+                      Validation: {attempt.decimalValue} {'<'} {data.limit}{' '}
                       {attempt.accepted ? (
                         <span style={styles.validBadge}>✓ ACCEPTED</span>
                       ) : (
