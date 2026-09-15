@@ -84,6 +84,26 @@ export default function Dice(): React.ReactElement {
   const [scheduledRoll, setScheduledRoll] = useState<ScheduledRoll | null>(null);
   const [timeRemainingSeconds, setTimeRemainingSeconds] = useState<number | null>(null);
   const [data, setData] = useState<CalculationDetails | null>(null);
+  const [copied, setCopied] = useState<boolean>(false);
+
+  // Helper to copy text to clipboard
+  const handleCopyUrl = async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback for non-HTTPS or unsupported environments
+      const textArea = document.createElement('textarea');
+      textArea.value = url;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
 
   // Core function to execute roll logic given target parameters
   const executeRoll = useCallback(
@@ -444,26 +464,34 @@ export default function Dice(): React.ReactElement {
           </p>
           <p style={styles.scheduledTimeText}>{scheduledRoll.targetDateUtc}</p>
 
-          <p style={{ margin: '0.75rem 0 0.5rem 0' }}>
+          <div style={{ margin: '0.75rem 0 0.5rem 0' }}>
             <strong>Future Dice Roll URL (Share with Players):</strong>
-            <br />
-            <a
-              href={scheduledRoll.shareableUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={styles.backLink}
-            >
-              <code style={styles.inlineCode}>{scheduledRoll.shareableUrl}</code>
-            </a>
-          </p>
-         
-
-          <p style={{ margin: '0.5rem 0 1rem 0' }}>
-            <strong>Target Pulse URI:</strong>{' '}
-             <div style={styles.noticeBox}>
-            ℹ️ <strong>Note:</strong> Accessing the NIST URI above prior to release will display{' '}
-            <code style={styles.inlineCode}>"Pulse Not Available."</code> until the countdown expires.
+            <div style={styles.copyUrlRow}>
+              <a
+                href={scheduledRoll.shareableUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ ...styles.backLink, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}
+              >
+                <code style={styles.inlineCode}>{scheduledRoll.shareableUrl}</code>
+              </a>
+              <button
+                type="button"
+                onClick={() => handleCopyUrl(scheduledRoll.shareableUrl)}
+                style={styles.copyBtn}
+                title="Copy URL to clipboard"
+              >
+                {copied ? '✓ Copied!' : '📋 Copy URL'}
+              </button>
+            </div>
           </div>
+
+          <div style={{ margin: '0.5rem 0 1rem 0' }}>
+            <strong>Target Pulse URI:</strong>{' '}
+            <div style={styles.noticeBox}>
+              ℹ️ <strong>Note:</strong> Accessing the NIST URI above prior to release will display{' '}
+              <code style={styles.inlineCode}>"Pulse Not Available."</code> until the countdown expires.
+            </div>
             <a
               href={scheduledRoll.pulseUri}
               target="_blank"
@@ -472,9 +500,8 @@ export default function Dice(): React.ReactElement {
             >
               <code style={styles.inlineCode}>{scheduledRoll.pulseUri}</code>
             </a>
-          </p>
+          </div>
 
-        
           {timeRemainingSeconds !== null && (
             <div style={styles.countdownBox}>
               ⏱️ {formatCountdownText(timeRemainingSeconds)}
@@ -778,6 +805,25 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '1.2rem',
     fontWeight: 'bold',
     color: '#212529',
+  },
+  copyUrlRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    marginTop: '0.35rem',
+    justifyContent: 'center',
+  },
+  copyBtn: {
+    padding: '0.3rem 0.6rem',
+    fontSize: '0.8rem',
+    fontWeight: 600,
+    color: '#0066cc',
+    backgroundColor: '#e7f5ff',
+    border: '1px solid #a5d8ff',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+    transition: 'all 0.2s ease',
   },
   noticeBox: {
     backgroundColor: '#fff3cd',
