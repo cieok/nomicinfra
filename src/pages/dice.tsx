@@ -323,7 +323,7 @@ export default function Dice(): React.ReactElement {
 
   const formatCountdownText = (seconds: number | null): string => {
     if (seconds === null) return '';
-    if (seconds <= 0) return 'Pulse available now! Click "Roll Dice / Generate" to fetch.';
+    if (seconds <= 0) return 'Pulse available now! Click below to fetch.';
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     if (mins > 0) {
@@ -456,9 +456,14 @@ export default function Dice(): React.ReactElement {
               <code style={styles.inlineCode}>{scheduledRoll.shareableUrl}</code>
             </a>
           </p>
+         
 
           <p style={{ margin: '0.5rem 0 1rem 0' }}>
             <strong>Target Pulse URI:</strong>{' '}
+             <div style={styles.noticeBox}>
+            ℹ️ <strong>Note:</strong> Accessing the NIST URI above prior to release will display{' '}
+            <code style={styles.inlineCode}>"Pulse Not Available."</code> until the countdown expires.
+          </div>
             <a
               href={scheduledRoll.pulseUri}
               target="_blank"
@@ -469,13 +474,31 @@ export default function Dice(): React.ReactElement {
             </a>
           </p>
 
+        
           {timeRemainingSeconds !== null && (
             <div style={styles.countdownBox}>
               ⏱️ {formatCountdownText(timeRemainingSeconds)}
             </div>
           )}
-          <p style={styles.scheduledNote}>
-            NIST generates pulses every 60 seconds (aligned to UTC minute boundaries) with a ~30 second delay for digital signing and distribution. Once the countdown completes, click <strong>"Roll Dice / Generate"</strong> to retrieve the verifiable random result.
+
+          <button
+            onClick={() => executeRoll(scheduledRoll.targetTimestampMs, min, max)}
+            disabled={loading || (timeRemainingSeconds !== null && timeRemainingSeconds > 0)}
+            style={{
+              ...styles.button,
+              opacity: timeRemainingSeconds !== null && timeRemainingSeconds > 0 ? 0.6 : 1,
+              cursor: timeRemainingSeconds !== null && timeRemainingSeconds > 0 ? 'not-allowed' : 'pointer',
+              width: '100%',
+              marginTop: '0.75rem',
+            }}
+          >
+            {timeRemainingSeconds !== null && timeRemainingSeconds > 0
+              ? 'Pulse Not Available (Waiting for NIST...)'
+              : 'Fetch Verifiable Pulse Now'}
+          </button>
+
+          <p style={{ ...styles.scheduledNote, marginTop: '0.75rem' }}>
+            NIST generates pulses every 60 seconds (aligned to UTC minute boundaries) with a ~30 second delay for digital signing and distribution.
           </p>
         </div>
       )}
@@ -755,6 +778,17 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '1.2rem',
     fontWeight: 'bold',
     color: '#212529',
+  },
+  noticeBox: {
+    backgroundColor: '#fff3cd',
+    border: '1px solid #ffeeba',
+    color: '#856404',
+    padding: '0.6rem 0.8rem',
+    borderRadius: '6px',
+    fontSize: '0.85rem',
+    marginBottom: '0.75rem',
+    lineHeight: 1.4,
+    textAlign: 'left',
   },
   countdownBox: {
     backgroundColor: '#fff',
