@@ -25,22 +25,30 @@ interface AttemptRecord {
   accepted: boolean;
 }
 
+interface IndividualDieResult {
+  dieIndex: number;
+  bigIntValue: string;
+  moduloResult: string;
+  finalRandomValue: string;
+  usedHexSlice: string;
+  attemptsLog: AttemptRecord[];
+}
+
 interface CalculationDetails {
   pulseTimestampUtc: string;
   pulseUri: string;
   hexOutput: string;
-  bigIntValue: string;
   min: string;
   max: string;
+  diceCount: number;
   rangeSpan: string;
-  moduloResult: string;
-  finalRandomValue: string;
   hexCharsNeeded: string;
-  usedHexSlice: string;
-  totalAttempts: string;
   limit: string;
   capacity: string;
-  attemptsLog: AttemptRecord[];
+  totalAttempts: string;
+  diceResults: IndividualDieResult[];
+  totalSum: string;
+  totalProduct: string;
 }
 
 interface ScheduledRoll {
@@ -74,6 +82,7 @@ export default function Dice(): React.ReactElement {
   );
   const [min, setMin] = useState<number | string>(1);
   const [max, setMax] = useState<number | string>(6);
+  const [diceCount, setDiceCount] = useState<number | string>(2);
 
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -100,7 +109,12 @@ export default function Dice(): React.ReactElement {
   };
 
   const executeRoll = useCallback(
-    async (targetMs: number, minVal: string | number, maxVal: string | number) => {
+    async (
+      targetMs: number,
+      minVal: string | number,
+      maxVal: string | number,
+      numDiceVal: string | number
+    ) => {
       setLoading(true);
       setError(null);
       setData(null);
@@ -108,6 +122,7 @@ export default function Dice(): React.ReactElement {
 
       const minNum = BigInt(minVal);
       const maxNum = BigInt(maxVal);
+      const count = Math.max(1, parseInt(numDiceVal.toString(), 10) || 1);
 
       if (minNum >= maxNum) {
         setError('Minimum value must be strictly less than maximum value.');
@@ -125,6 +140,7 @@ export default function Dice(): React.ReactElement {
           timestamp: targetMs.toString(),
           min: minVal.toString(),
           max: maxVal.toString(),
+          diceCount: count.toString(),
         });
         const currentShareableUrl = `${window.location.origin}${window.location.pathname}?${searchParams.toString()}`;
 
@@ -175,57 +191,76 @@ export default function Dice(): React.ReactElement {
         const sliceMaxCapacity = 1n << BigInt(hexCharsNeeded * 4);
         const limit = (sliceMaxCapacity / rangeSpan) * rangeSpan;
 
-        let selectedOffset: bigint | null = null;
-        let usedHexSlice = '';
-        let totalAttempts = 0;
-        let bigIntValue = 0n;
-        const attemptsLog: AttemptRecord[] = [];
+        const diceResults: IndividualDieResult[] = [];
+        let globalAttemptCount = 0;
+        let currentHexIndex = 0;
+        let totalSum = 0n;
+        let totalProduct = 1n;
 
-        for (let i = 0; i + hexCharsNeeded <= hexOutput.length; i += hexCharsNeeded) {
-          totalAttempts++;
-          const slice = hexOutput.substring(i, i + hexCharsNeeded);
-          const val = BigInt(`0x${slice}`);
-          const isAccepted = val < limit;
+        for (let dieIdx = 1; dieIdx <= count; dieIdx++) {
+          let selectedOffset: bigint | null = null;
+          let usedHexSlice = '';
+          let bigIntValue = 0n;
+          const attemptsLog: AttemptRecord[] = [];
 
-          attemptsLog.push({
-            attemptIndex: totalAttempts,
-            hexSlice: slice,
-            decimalValue: val.toString(),
-            accepted: isAccepted,
-          });
+          while (currentHexIndex + hexCharsNeeded <= hexOutput.length) {
+            globalAttemptCount++;
+            const slice = hexOutput.substring(currentHexIndex, currentHexIndex + hexCharsNeeded);
+            currentHexIndex += hexCharsNeeded;
 
-          if (isAccepted) {
-            selectedOffset = val % rangeSpan;
-            usedHexSlice = slice;
-            bigIntValue = val;
-            break;
+            const val = BigInt(`0x${slice}`);
+            const isAccepted = val < limit;
+
+            attemptsLog.push({
+              attemptIndex: globalAttemptCount,
+              hexSlice: slice,
+              decimalValue: val.toString(),
+              accepted: isAccepted,
+            });
+
+            if (isAccepted) {
+              selectedOffset = val % rangeSpan;
+              usedHexSlice = slice;
+              bigIntValue = val;
+              break;
+            }
           }
-        }
 
-        if (selectedOffset === null) {
-          throw new Error(
-            `Rejection sampling exhausted all ${totalAttempts} hex slices without an unbiased value.`
-          );
-        }
+          if (selectedOffset === null) {
+            throw new Error(
+              `Rejection sampling exhausted available hex slices after ${globalAttemptCount} total attempt(s) across ${count} dice.`
+            );
+          }
 
-        const finalRandomValue = minNum + selectedOffset;
+          const dieFinalValue = minNum + selectedOffset;
+          totalSum += dieFinalValue;
+          totalProduct *= dieFinalValue;
+
+          diceResults.push({
+            dieIndex: dieIdx,
+            bigIntValue: bigIntValue.toString(),
+            moduloResult: selectedOffset.toString(),
+            finalRandomValue: dieFinalValue.toString(),
+            usedHexSlice,
+            attemptsLog,
+          });
+        }
 
         setData({
           pulseTimestampUtc: formatUtcDisplay(pulse.timeStamp),
           pulseUri: expectedPulseUri,
           hexOutput: hexOutput,
-          bigIntValue: bigIntValue.toString(),
           min: minNum.toString(),
           max: maxNum.toString(),
+          diceCount: count,
           rangeSpan: rangeSpan.toString(),
-          moduloResult: selectedOffset.toString(),
-          finalRandomValue: finalRandomValue.toString(),
           hexCharsNeeded: hexCharsNeeded.toString(),
-          usedHexSlice,
-          totalAttempts: totalAttempts.toString(),
           limit: limit.toString(),
           capacity: sliceMaxCapacity.toString(),
-          attemptsLog,
+          totalAttempts: globalAttemptCount.toString(),
+          diceResults,
+          totalSum: totalSum.toString(),
+          totalProduct: totalProduct.toString(),
         });
       } catch (err: unknown) {
         if (err instanceof Error) {
@@ -245,6 +280,7 @@ export default function Dice(): React.ReactElement {
     const timestampParam = params.get('timestamp');
     const minParam = params.get('min');
     const maxParam = params.get('max');
+    const countParam = params.get('diceCount');
 
     if (timestampParam) {
       const parsedMs = parseInt(timestampParam, 10);
@@ -254,11 +290,13 @@ export default function Dice(): React.ReactElement {
 
         const activeMin = minParam !== null ? minParam : min;
         const activeMax = maxParam !== null ? maxParam : max;
+        const activeCount = countParam !== null ? countParam : diceCount;
 
         if (minParam !== null) setMin(minParam);
         if (maxParam !== null) setMax(maxParam);
+        if (countParam !== null) setDiceCount(countParam);
 
-        executeRoll(parsedMs, activeMin, activeMax);
+        executeRoll(parsedMs, activeMin, activeMax, activeCount);
       }
     }
   }, [executeRoll]);
@@ -278,11 +316,12 @@ export default function Dice(): React.ReactElement {
     searchParams.set('timestamp', timestampMs.toString());
     searchParams.set('min', min.toString());
     searchParams.set('max', max.toString());
+    searchParams.set('diceCount', diceCount.toString());
 
     const newUrl = `${window.location.pathname}?${searchParams.toString()}`;
     window.history.pushState({ path: newUrl }, '', newUrl);
 
-    executeRoll(timestampMs, min, max);
+    executeRoll(timestampMs, min, max, diceCount);
   };
 
   const addTenMinutesToCurrentInput = (): void => {
@@ -402,7 +441,20 @@ export default function Dice(): React.ReactElement {
 
         <div className={styles.row}>
           <div className={styles.inputGroup}>
-            <label className={styles.label}>Range Min:</label>
+            <label className={styles.label}>Number of Dice:</label>
+            <input
+              type="number"
+              min="1"
+              max="50"
+              value={diceCount}
+              onChange={(e) => setDiceCount(e.target.value)}
+              required
+              className={styles.input}
+            />
+          </div>
+
+          <div className={styles.inputGroup}>
+            <label className={styles.label}>Range Min (Per Die):</label>
             <input
               type="number"
               value={min}
@@ -413,7 +465,7 @@ export default function Dice(): React.ReactElement {
           </div>
 
           <div className={styles.inputGroup}>
-            <label className={styles.label}>Range Max:</label>
+            <label className={styles.label}>Range Max (Per Die):</label>
             <input
               type="number"
               value={max}
@@ -488,7 +540,7 @@ export default function Dice(): React.ReactElement {
           )}
 
           <button
-            onClick={() => executeRoll(scheduledRoll.targetTimestampMs, min, max)}
+            onClick={() => executeRoll(scheduledRoll.targetTimestampMs, min, max, diceCount)}
             disabled={loading || isScheduledRollDisabled}
             className={`${styles.button} ${styles.fullWidthBtn} ${
               isScheduledRollDisabled ? styles.disabledBtn : ''
@@ -510,10 +562,96 @@ export default function Dice(): React.ReactElement {
         <div className={styles.resultsContainer}>
           {/* Prominent Result Header */}
           <div className={styles.resultBadge}>
-            <span className={styles.badgeLabel}>Final Random Roll</span>
-            <span className={styles.badgeValue}>{data.finalRandomValue}</span>
-            <span className={styles.badgeSubtext}>
-              Valid range: [{data.min} to {data.max}]
+            <span className={styles.badgeLabel}>
+              {data.diceCount > 1 ? `Final Random Roll (${data.diceCount} Dice)` : 'Final Random Roll'}
+            </span>
+
+            {/* Individual Dice Rectangles Grid with Blue Accented Values */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
+                gap: '0.75rem',
+                margin: '1rem 0',
+                width: '100%',
+              }}
+            >
+              {data.diceResults.map((die) => (
+                <div
+                  key={die.dieIndex}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '0.75rem 0.5rem',
+                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                    border: '1px solid rgba(59, 130, 246, 0.4)',
+                    borderRadius: '8px',
+                    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: '0.75rem',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      opacity: 0.8,
+                      marginBottom: '0.25rem',
+                    }}
+                  >
+                    Die #{die.dieIndex}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: '2.25rem',
+                      fontWeight: 'bold',
+                      color: '#3b82f6', // Restored Blue Accent Color
+                      lineHeight: 1,
+                    }}
+                  >
+                    {die.finalRandomValue}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: '0.7rem',
+                      opacity: 0.6,
+                      marginTop: '0.35rem',
+                      fontFamily: 'monospace',
+                    }}
+                  >
+                    0x{die.usedHexSlice}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Math Aggregations (Sum & Product) */}
+            {data.diceCount > 1 && (
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '1.5rem',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  marginTop: '0.5rem',
+                  padding: '0.5rem 1rem',
+                  background: 'rgba(0, 0, 0, 0.15)',
+                  borderRadius: '6px',
+                }}
+              >
+                <span className={styles.badgeSubtext}>
+                  Sum (Σ): <strong style={{ color: '#60a5fa', fontSize: '1.1rem' }}>{data.totalSum}</strong>
+                </span>
+                <span className={styles.badgeSubtext}>
+                  Product (∏): <strong style={{ color: '#60a5fa', fontSize: '1.1rem' }}>{data.totalProduct}</strong>
+                </span>
+              </div>
+            )}
+
+            <span className={styles.badgeSubtext} style={{ marginTop: '0.75rem' }}>
+              Valid range per die: [{data.min} to {data.max}]
             </span>
           </div>
 
@@ -580,53 +718,43 @@ export default function Dice(): React.ReactElement {
               </div>
             </div>
 
-            {/* Step C: Rejection Sampling Log */}
-            <div className={styles.stepBox}>
-              <div className={styles.stepHeader}>
-                <span className={styles.stepBadge}>Step C</span>
-                <strong>Rejection Sampling Attempts ({data.totalAttempts} total)</strong>
-              </div>
-              <p className={styles.stepDescription}>
-                Sequential evaluation of {data.hexCharsNeeded}-character hex slices from the output pulse. Slices ≥ {data.limit} are discarded.
-              </p>
-              <div className={styles.attemptsContainer}>
-                {data.attemptsLog.map((attempt) => (
-                  <div
-                    key={attempt.attemptIndex}
-                    className={`${styles.formulaBlock} ${
-                      attempt.accepted ? styles.acceptedBlock : styles.rejectedBlock
-                    }`}
-                  >
-                    <div>
-                      <strong>Attempt #{attempt.attemptIndex}:</strong> Chunk <code className={styles.inlineCode}>"0x{attempt.hexSlice}"</code> → Decimal (X) = <strong>{attempt.decimalValue}</strong>
-                    </div>
-                    <div className={styles.statusCheck}>
-                      Validation: {attempt.decimalValue} {attempt.accepted ? '<' : '≮'} {data.limit}{' '}
-                      {attempt.accepted ? (
-                        <span className={styles.validBadge}>✓ ACCEPTED</span>
-                      ) : (
-                        <span className={styles.rejectedBadge}>✕ REJECTED (Modulo Bias)</span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            {/* Step C & D Per Die */}
+            {data.diceResults.map((die) => (
+              <div key={die.dieIndex} className={styles.stepBox}>
+                <div className={styles.stepHeader}>
+                  <span className={styles.stepBadge}>Die #{die.dieIndex}</span>
+                  <strong>Rejection Sampling & Range Mapping</strong>
+                </div>
 
-            {/* Step D */}
-            <div className={styles.stepBox}>
-              <div className={styles.stepHeader}>
-                <span className={styles.stepBadge}>Step D</span>
-                <strong>Map Offset to Output Range</strong>
+                <div className={styles.attemptsContainer}>
+                  {die.attemptsLog.map((attempt) => (
+                    <div
+                      key={attempt.attemptIndex}
+                      className={`${styles.formulaBlock} ${
+                        attempt.accepted ? styles.acceptedBlock : styles.rejectedBlock
+                      }`}
+                    >
+                      <div>
+                        <strong>Attempt #{attempt.attemptIndex}:</strong> Chunk <code className={styles.inlineCode}>"0x{attempt.hexSlice}"</code> → Decimal (X) = <strong>{attempt.decimalValue}</strong>
+                      </div>
+                      <div className={styles.statusCheck}>
+                        Validation: {attempt.decimalValue} {attempt.accepted ? '<' : '≮'} {data.limit}{' '}
+                        {attempt.accepted ? (
+                          <span className={styles.validBadge}>✓ ACCEPTED</span>
+                        ) : (
+                          <span className={styles.rejectedBadge}>✕ REJECTED (Modulo Bias)</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className={styles.formulaBlock} style={{ marginTop: '0.75rem' }}>
+                  <div>Offset Index = X mod N = {die.bigIntValue} mod {data.rangeSpan} = <strong>{die.moduloResult}</strong></div>
+                  <div>Die #{die.dieIndex} Result = Min + Offset = {data.min} + {die.moduloResult} = <strong className={styles.finalHighlight} style={{ color: '#3b82f6' }}>{die.finalRandomValue}</strong></div>
+                </div>
               </div>
-              <p className={styles.stepDescription}>
-                Map the validated decimal value into your desired range using modulo arithmetic.
-              </p>
-              <div className={styles.formulaBlock}>
-                <div>Offset Index = X mod N = {data.bigIntValue} mod {data.rangeSpan} = <strong>{data.moduloResult}</strong></div>
-                <div>Final Result = Min + Offset = {data.min} + {data.moduloResult} = <strong className={styles.finalHighlight}>{data.finalRandomValue}</strong></div>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       )}
