@@ -1,0 +1,448 @@
+.container {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 2rem 1rem;
+  font-family: system-ui, -apple-system, sans-serif;
+  color: #333;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+.topNav {
+  margin-bottom: 1rem;
+}
+
+.backLink {
+  color: #0066cc;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.header {
+  margin-bottom: 1.25rem;
+  text-align: center;
+}
+
+.title {
+  margin: 0 0 0.5rem 0;
+  font-size: 2rem;
+}
+
+.subtext {
+  color: #666;
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.nomicInfoCard {
+  background-color: #f1f8ff;
+  border: 1px solid #c8e1ff;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.nomicTitle {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+  color: #0366d6;
+}
+
+.nomicList {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #24292e;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  background: #f8f9fa;
+  padding: 1.25rem;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.row {
+  display: flex;
+  gap: 1rem;
+}
+
+.labelRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.utcBadge {
+  background-color: #0366d6;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: bold;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+}
+
+.timestampRow {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 0.25rem;
+}
+
+.label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #495057;
+}
+
+.helpText {
+  font-size: 0.78rem;
+  color: #6c757d;
+  margin-top: 0.15rem;
+}
+
+.input {
+  padding: 0.5rem;
+  border-radius: 4px;
+  border: 1px solid #ced4da;
+  font-size: 1rem;
+  flex: 1;
+}
+
+.quickSelectBtn {
+  padding: 0.55rem 0.85rem;
+  background-color: #e9ecef;
+  color: #495057;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.button {
+  padding: 0.75rem;
+  background-color: #0066cc;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: 0.5rem;
+}
+
+.fullWidthBtn {
+  width: 100%;
+  margin-top: 0.75rem;
+}
+
+.disabledBtn {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.errorCard {
+  margin-top: 1rem;
+  padding: 1rem;
+  background-color: #f8d7da;
+  color: #721c24;
+  border-radius: 6px;
+  border: 1px solid #f5c6cb;
+}
+
+.scheduledCard {
+  margin-top: 1.5rem;
+  padding: 1.25rem;
+  background-color: rgba(238, 191, 49, 0.06);
+  border: 2px dashed #e0a800;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.scheduledHeader {
+  margin-bottom: 0.5rem;
+}
+
+.scheduledBadge {
+  background-color: #e0a800;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  padding: 0.25rem 0.6rem;
+  border-radius: 12px;
+}
+
+.scheduledMainText {
+  margin: 0.5rem 0 0.25rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #495057;
+}
+
+.scheduledTimeText {
+  margin: 0 0 0.75rem 0;
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #212529;
+}
+
+.sectionSpacing {
+  margin: 0.75rem 0 0.5rem 0;
+}
+
+.subSectionSpacing {
+  margin: 0.5rem 0 1rem 0;
+}
+
+.copyUrlRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+  justify-content: center;
+}
+
+.truncatedLink {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.copyBtn {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #0066cc;
+  background-color: #e7f5ff;
+  border: 1px solid #a5d8ff;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.noticeBox {
+  background-color: #fff3cd;
+  border: 1px solid #ffeeba;
+  color: #856404;
+  padding: 0.6rem 0.8rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  margin-bottom: 0.75rem;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.countdownBox {
+  background-color: #fff;
+  border: 1px solid #ffe8a1;
+  border-radius: 6px;
+  padding: 0.6rem 1rem;
+  display: inline-block;
+  font-weight: bold;
+  font-size: 1.1rem;
+  color: #856404;
+  margin-bottom: 0.75rem;
+}
+
+.scheduledNote {
+  font-size: 0.875rem;
+  color: #6c757d;
+  margin: 0.75rem 0 0 0;
+  line-height: 1.4;
+}
+
+.resultsContainer {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.resultBadge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: #e7f5ff;
+  border: 2px solid #339af0;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.badgeLabel {
+  font-size: 0.875rem;
+  color: #1864ab;
+  text-transform: uppercase;
+  font-weight: bold;
+}
+
+.badgeValue {
+  font-size: 3rem;
+  font-weight: bold;
+  color: #1864ab;
+}
+
+.badgeSubtext {
+  font-size: 0.85rem;
+  color: #495057;
+  margin-top: 0.25rem;
+}
+
+.card {
+  background-color: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 1.25rem;
+}
+
+.cardTitle {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+  font-size: 1.1rem;
+}
+
+.detailRow {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid #f1f3f5;
+  font-size: 0.9rem;
+}
+
+.rawHexBlock {
+  margin-top: 0.75rem;
+}
+
+.sectionExplainer {
+  font-size: 0.875rem;
+  color: #495057;
+  line-height: 1.5;
+  margin-bottom: 1rem;
+}
+
+.stepBox {
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.stepHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+  font-size: 0.95rem;
+}
+
+.stepBadge {
+  background-color: #495057;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: bold;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+}
+
+.stepDescription {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.825rem;
+  color: #6c757d;
+}
+
+.formulaBlock {
+  background-color: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 0.6rem 0.75rem;
+  font-family: monospace;
+  font-size: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.acceptedBlock {
+  border-left: 4px solid #2b8a3e;
+  background-color: #f8f9fa;
+}
+
+.rejectedBlock {
+  border-left: 4px solid #e03131;
+  background-color: #fff5f5;
+}
+
+.attemptsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.statusCheck {
+  margin-top: 0.25rem;
+  padding-top: 0.25rem;
+  border-top: 1px dashed #dee2e6;
+  font-weight: bold;
+}
+
+.validBadge {
+  color: #2b8a3e;
+  background-color: #d3f9d8;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  margin-left: 0.25rem;
+}
+
+.rejectedBadge {
+  color: #e03131;
+  background-color: #ffe3e3;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  margin-left: 0.25rem;
+}
+
+.finalHighlight {
+  color: #0066cc;
+}
+
+.inlineCode {
+  font-family: monospace;
+  background-color: #e9ecef;
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  font-size: 0.85rem;
+}
+
+.codeBlock {
+  display: block;
+  font-family: monospace;
+  background-color: #212529;
+  color: #f8f9fa;
+  padding: 0.75rem;
+  border-radius: 6px;
+  margin-top: 0.35rem;
+  font-size: 0.8rem;
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+
+.footer {
+  margin-top: 2rem;
+  text-align: center;
+}
