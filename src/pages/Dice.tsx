@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import ReactDOM from 'react-dom/client';
 import styles from './Dice.module.css';
 
@@ -61,25 +61,98 @@ interface ScheduledRoll {
 // NIST pulse generation, signing & CDN propagation delay buffer in ms (30 seconds)
 const NIST_DELAY_OFFSET_MS = 30 * 1000;
 
-export default function Dice(): React.ReactElement {
-  const formatUtcDateTimeInput = (date: Date): string => {
-    return date.toISOString().slice(0, 16);
-  };
+/**
+ * Gets the browser's local timezone or falls back to UTC.
+ */
+const detectUserTimezone = (): string => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch {
+    return 'UTC';
+  }
+};
 
-  const parseUtcTimestampMs = (dateTimeStr: string): number => {
-    if (!dateTimeStr) return NaN;
-    const utcIsoStr = dateTimeStr.endsWith('Z') ? dateTimeStr : `${dateTimeStr}:00Z`;
-    return new Date(utcIsoStr).getTime();
-  };
+/**
+ * Parses components of a date string formatted as "YYYY-MM-DDTHH:mm" in a target timezone.
+ */
+const parseDateTimeInTimezone = (dateTimeStr: string, timeZone: string): number => {
+  if (!dateTimeStr) return NaN;
+  const [datePart, timePart] = dateTimeStr.split('T');
+  if (!datePart || !timePart) return NaN;
 
-  const formatUtcDisplay = (dateStrOrMs: string | number): string => {
-    const date = new Date(dateStrOrMs);
-    return isNaN(date.getTime()) ? '' : `${date.toUTCString()} (UTC)`;
-  };
+  const [year, month, day] = datePart.split('-').map(Number);
+  const [hours, minutes] = timePart.split(':').map(Number);
 
-  const [dateTimeUtc, setDateTimeUtc] = useState<string>(
-    formatUtcDateTimeInput(new Date(Date.now() + 1 * 60 * 1000))
+  // Fallback to UTC simple parsing if UTC selected
+  if (timeZone === 'UTC') {
+    return Date.UTC(year, month - 1, day, hours, minutes);
+  }
+
+  // Target local wall time assumption in UTC initially
+  const targetUtcAttempt = Date.UTC(year, month - 1, day, hours, minutes);
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+
+  const parts = formatter.formatToParts(new Date(targetUtcAttempt));
+  const partMap: Record<string, string> = {};
+  parts.forEach((p) => {
+    if (p.type !== 'literal') partMap[p.type] = p.value;
+  });
+
+  // Calculate local timezone offset difference relative to target wall-clock
+  const formattedHour = partMap.hour === '24' ? 0 : parseInt(partMap.hour, 10);
+  const formattedAsDate = Date.UTC(
+    parseInt(partMap.year, 10),
+    parseInt(partMap.month, 10) - 1,
+    parseInt(partMap.day, 10),
+    formattedHour,
+    parseInt(partMap.minute, 10)
   );
+
+  const offsetMs = formattedAsDate - targetUtcAttempt;
+  return targetUtcAttempt - offsetMs;
+};
+
+/**
+ * Formats a Date object into "YYYY-MM-DDTHH:mm" for datetime-local input based on a given timezone.
+ */
+const formatDateTimeInputForTimezone = (date: Date, timeZone: string): string => {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+
+  const parts = formatter.formatToParts(date);
+  const p: Record<string, string> = {};
+  parts.forEach((part) => {
+    if (part.type !== 'literal') p[part.type] = part.value;
+  });
+
+  const hourStr = p.hour === '24' ? '00' : p.hour;
+  return `${p.year}-${p.month}-${p.day}T${hourStr}:${p.minute}`;
+};
+
+export default function Dice(): React.ReactElement {
+  // Detect local timezone once during initialization
+  const [selectedTimezone, setSelectedTimezone] = useState<string>(detectUserTimezone);
+
+  const [dateTimeInput, setDateTimeInput] = useState<string>(() =>
+    formatDateTimeInputForTimezone(new Date(Date.now() + 1 * 60 * 1000), selectedTimezone)
+  );
+
   const [min, setMin] = useState<number | string>(1);
   const [max, setMax] = useState<number | string>(6);
   const [diceCount, setDiceCount] = useState<number | string>(2);
@@ -90,6 +163,26 @@ export default function Dice(): React.ReactElement {
   const [timeRemainingSeconds, setTimeRemainingSeconds] = useState<number | null>(null);
   const [data, setData] = useState<CalculationDetails | null>(null);
   const [copied, setCopied] = useState<boolean>(false);
+
+  // List of standard supported IANA Timezones
+  const availableTimezones = useMemo(() => {
+    try {
+      return Intl.supportedValuesOf('timeZone');
+    } catch {
+      return ['UTC', 'America/New_York', 'America/Los_Angeles', 'Europe/London', 'Asia/Tokyo'];
+    }
+  }, []);
+
+  const formatUtcDisplay = (dateStrOrMs: string | number): string => {
+    const date = new Date(dateStrOrMs);
+    return isNaN(date.getTime()) ? '' : `${date.toUTCString()} (UTC)`;
+  };
+
+  const formatSelectedTimezoneDisplay = (timestampMs: number): string => {
+    if (isNaN(timestampMs)) return '';
+    const date = new Date(timestampMs);
+    return `${date.toLocaleString('en-US', { timeZone: selectedTimezone, timeZoneName: 'short' })}`;
+  };
 
   const handleCopyUrl = async (url: string) => {
     try {
@@ -132,7 +225,7 @@ export default function Dice(): React.ReactElement {
 
       try {
         if (isNaN(targetMs)) {
-          throw new Error('Invalid UTC date/time timestamp.');
+          throw new Error('Invalid date/time timestamp.');
         }
 
         const expectedPulseUri = `https://beacon.nist.gov/beacon/2.0/pulse/time/${targetMs}`;
@@ -286,7 +379,7 @@ export default function Dice(): React.ReactElement {
       const parsedMs = parseInt(timestampParam, 10);
       if (!isNaN(parsedMs)) {
         const parsedDate = new Date(parsedMs);
-        setDateTimeUtc(formatUtcDateTimeInput(parsedDate));
+        setDateTimeInput(formatDateTimeInputForTimezone(parsedDate, selectedTimezone));
 
         const activeMin = minParam !== null ? minParam : min;
         const activeMax = maxParam !== null ? maxParam : max;
@@ -299,16 +392,24 @@ export default function Dice(): React.ReactElement {
         executeRoll(parsedMs, activeMin, activeMax, activeCount);
       }
     }
-  }, [executeRoll]);
+  }, [executeRoll, selectedTimezone]);
+
+  const handleTimezoneChange = (newTz: string) => {
+    const currentMs = parseDateTimeInTimezone(dateTimeInput, selectedTimezone);
+    setSelectedTimezone(newTz);
+    if (!isNaN(currentMs)) {
+      setDateTimeInput(formatDateTimeInputForTimezone(new Date(currentMs), newTz));
+    }
+  };
 
   const handleFetchAndCalculate = async (
     e: React.FormEvent<HTMLFormElement>
   ): Promise<void> => {
     e.preventDefault();
-    const timestampMs = parseUtcTimestampMs(dateTimeUtc);
+    const timestampMs = parseDateTimeInTimezone(dateTimeInput, selectedTimezone);
 
     if (isNaN(timestampMs)) {
-      setError('Invalid UTC date/time selection.');
+      setError('Invalid date/time selection.');
       return;
     }
 
@@ -325,14 +426,9 @@ export default function Dice(): React.ReactElement {
   };
 
   const addTenMinutesToCurrentInput = (): void => {
-    const currentMs = parseUtcTimestampMs(dateTimeUtc);
-    if (isNaN(currentMs)) {
-      setDateTimeUtc(formatUtcDateTimeInput(new Date(Date.now() + 10 * 60 * 1000)));
-      return;
-    }
-    const tenMinInMs = 10 * 60 * 1000;
-    const futureDate = new Date(currentMs + tenMinInMs);
-    setDateTimeUtc(formatUtcDateTimeInput(futureDate));
+    const currentMs = parseDateTimeInTimezone(dateTimeInput, selectedTimezone);
+    const targetMs = isNaN(currentMs) ? Date.now() + 10 * 60 * 1000 : currentMs + 10 * 60 * 1000;
+    setDateTimeInput(formatDateTimeInputForTimezone(new Date(targetMs), selectedTimezone));
   };
 
   useEffect(() => {
@@ -369,6 +465,8 @@ export default function Dice(): React.ReactElement {
 
   const isScheduledRollDisabled =
     timeRemainingSeconds !== null && timeRemainingSeconds > 0;
+
+  const currentParsedTimestamp = parseDateTimeInTimezone(dateTimeInput, selectedTimezone);
 
   return (
     <div className={styles.container}>
@@ -414,14 +512,32 @@ export default function Dice(): React.ReactElement {
       <form onSubmit={handleFetchAndCalculate} className={styles.form}>
         <div className={styles.inputGroup}>
           <div className={styles.labelRow}>
-            <label className={styles.label}>Select Target Timestamp (UTC):</label>
-            <span className={styles.utcBadge}>UTC ONLY</span>
+            <label className={styles.label}>Select Timezone:</label>
+          </div>
+          <select
+            value={selectedTimezone}
+            onChange={(e) => handleTimezoneChange(e.target.value)}
+            className={styles.input}
+          >
+            {!availableTimezones.includes('UTC') && <option value="UTC">UTC</option>}
+            {availableTimezones.map((tz) => (
+              <option key={tz} value={tz}>
+                {tz}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className={styles.inputGroup}>
+          <div className={styles.labelRow}>
+            <label className={styles.label}>Select Target Timestamp:</label>
+            <span className={styles.utcBadge}>{selectedTimezone}</span>
           </div>
           <div className={styles.timestampRow}>
             <input
               type="datetime-local"
-              value={dateTimeUtc}
-              onChange={(e) => setDateTimeUtc(e.target.value)}
+              value={dateTimeInput}
+              onChange={(e) => setDateTimeInput(e.target.value)}
               required
               className={styles.input}
             />
@@ -429,13 +545,15 @@ export default function Dice(): React.ReactElement {
               type="button"
               onClick={addTenMinutesToCurrentInput}
               className={styles.quickSelectBtn}
-              title="Add 10 minutes (UTC) to current selection"
+              title="Add 10 minutes to current selection"
             >
               +10 Min
             </button>
           </div>
           <span className={styles.helpText}>
-            Selected UTC: {formatUtcDisplay(parseUtcTimestampMs(dateTimeUtc))}
+            Selected Local: {formatSelectedTimezoneDisplay(currentParsedTimestamp)}
+            <br />
+            Converted UTC: {formatUtcDisplay(currentParsedTimestamp)}
           </span>
         </div>
 
@@ -490,13 +608,15 @@ export default function Dice(): React.ReactElement {
           <div className={styles.scheduledHeader}>
             <span className={styles.scheduledBadge}>Scheduled Roll (UTC)</span>
           </div>
-          <p className={styles.scheduledMainText}>
-            The NIST pulse for this roll will be published at:
-          </p>
-          <p className={styles.scheduledTimeText}>{scheduledRoll.targetDateUtc}</p>
-
+     
+          {timeRemainingSeconds !== null && (
+            <div className={styles.countdownBox}>
+              ⏱️ {formatCountdownText(timeRemainingSeconds)}
+            </div>
+          )}
+ 
           <div className={styles.sectionSpacing}>
-            <strong>Future Dice Roll URL (Share with Players):</strong>
+            <strong>Share following url with players in advance:</strong>
             <div className={styles.copyUrlRow}>
               <a
                 href={scheduledRoll.shareableUrl}
@@ -517,27 +637,7 @@ export default function Dice(): React.ReactElement {
             </div>
           </div>
 
-          <div className={styles.subSectionSpacing}>
-            <strong>Target Pulse URI:</strong>{' '}
-            <div className={styles.noticeBox}>
-              ℹ️ <strong>Note:</strong> Accessing the NIST URI above prior to release will display{' '}
-              <code className={styles.inlineCode}>"Pulse Not Available."</code> until the countdown expires.
-            </div>
-            <a
-              href={scheduledRoll.pulseUri}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={styles.backLink}
-            >
-              <code className={styles.inlineCode}>{scheduledRoll.pulseUri}</code>
-            </a>
-          </div>
-
-          {timeRemainingSeconds !== null && (
-            <div className={styles.countdownBox}>
-              ⏱️ {formatCountdownText(timeRemainingSeconds)}
-            </div>
-          )}
+      
 
           <button
             onClick={() => executeRoll(scheduledRoll.targetTimestampMs, min, max, diceCount)}
@@ -547,13 +647,29 @@ export default function Dice(): React.ReactElement {
             }`}
           >
             {isScheduledRollDisabled
-              ? 'Pulse Not Available (Waiting for NIST...)'
+              ? 'Pulse Not Available (Waiting for target timestamp + NIST delay)'
               : 'Fetch Verifiable Pulse Now'}
           </button>
 
           <p className={styles.scheduledNote}>
             NIST generates pulses every 60 seconds (aligned to UTC minute boundaries) with a ~30 second delay for digital signing and distribution.
           </p>
+          <div className={styles.subSectionSpacing}>
+  <strong>Target Pulse URI:</strong>{' '}
+  <div className={styles.noticeBox}>
+    ℹ️ <strong>Note:</strong> Accessing the NIST URI above prior to release will display{' '}
+    <code className={styles.inlineCode}>&quot;Pulse Not Available.&quot;</code> until the countdown expires.
+  </div>
+  <a
+    href={scheduledRoll.pulseUri}
+    target="_blank"
+    rel="noopener noreferrer"
+    className={styles.backLink}
+  >
+    <code className={styles.inlineCode}>{scheduledRoll.pulseUri}</code>
+  </a>
+</div>
+
         </div>
       )}
 
@@ -606,7 +722,7 @@ export default function Dice(): React.ReactElement {
                     style={{
                       fontSize: '2.25rem',
                       fontWeight: 'bold',
-                      color: '#3b82f6', // Restored Blue Accent Color
+                      color: '#3b82f6',
                       lineHeight: 1,
                     }}
                   >
