@@ -19,10 +19,21 @@ export function App() {
   const [showUniqueWordsHelp, setShowUniqueWordsHelp] = useState<boolean>(false);
   const [selectedTopWord, setSelectedTopWord] = useState<string | null>(null);
   const [similarityFilter, setSimilarityFilter] = useState<'All' | 'Games' | 'Templates'>('All');
+  
+  // State for dynamic phrase length (number input)
+  const [phraseLength, setPhraseLength] = useState<number>(1);
 
   const handleSelectRuleset = (id: string) => {
     setActiveTabId(id);
     setShowRawText(false);
+    setSelectedTopWord(null);
+  };
+
+  const handlePhraseLengthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseInt(e.target.value, 10);
+    // Fallback to 1 if input is empty, non-numeric, or less than 1
+    const safeValue = isNaN(val) || val < 1 ? 1 : val;
+    setPhraseLength(safeValue);
     setSelectedTopWord(null);
   };
 
@@ -33,7 +44,6 @@ export function App() {
     };
   }, [rulesets]);
 
-  // Find the largest ruleset word count across all loaded rulesets
   const maxRulesetWords = useMemo(() => {
     let max = 0;
     rulesets.forEach((r) => {
@@ -45,7 +55,6 @@ export function App() {
     return max || 1;
   }, [rulesets, dataMap]);
 
-  // Square root scaling: Provides a balanced compression between linear and logarithmic scale
   const getScaledSizePct = (words: number) => {
     if (!words || words <= 0) return 0;
     const sqrtVal = Math.sqrt(words);
@@ -125,41 +134,63 @@ export function App() {
     return uniqueList.sort((a, b) => b.count - a.count || a.word.localeCompare(b.word));
   }, [currentRuleset, currentMetrics, dataMap, rulesets]);
 
+  // Dynamic helper to extract N-gram phrases of any length n
+  const extractNgrams = (content: string, n: number) => {
+    const tokens = content
+      .toLowerCase()
+      .replace(/[^\w\s]/g, '')
+      .split(/\s+/)
+      .filter((w) => w.length > 1 && !/\d/.test(w) && !w.startsWith('http'));
+
+    const counts = new Map<string, number>();
+    for (let i = 0; i <= tokens.length - n; i++) {
+      const ngram = tokens.slice(i, i + n).join(' ');
+      counts.set(ngram, (counts.get(ngram) || 0) + 1);
+    }
+    return counts;
+  };
+
+  // Top Phrases calculation for any length entered
   const topWords = useMemo(() => {
     if (!currentMetrics || currentMetrics.loading || currentMetrics.error) return [];
 
-    let otherTotalWords = 0;
-    const otherWordCounts = new Map<string, number>();
+    const n = Math.max(1, phraseLength);
+    const currentNgrams = extractNgrams(currentMetrics.content || '', n);
+    const otherNgramCounts = new Map<string, number>();
+    let otherTotalNgrams = 0;
 
     rulesets.forEach((r) => {
       if (r.id !== currentRuleset.id && dataMap[r.id] && !dataMap[r.id].loading) {
-        otherTotalWords += dataMap[r.id].words;
-        dataMap[r.id].wordCounts.forEach((count, word) => {
-          otherWordCounts.set(word, (otherWordCounts.get(word) || 0) + count);
+        const ngrams = extractNgrams(dataMap[r.id].content || '', n);
+        ngrams.forEach((count, phrase) => {
+          otherNgramCounts.set(phrase, (otherNgramCounts.get(phrase) || 0) + count);
+          otherTotalNgrams += count;
         });
       }
     });
 
-    if (otherTotalWords === 0) return [];
+    if (otherTotalNgrams === 0) return [];
+
+    let currentTotalNgrams = 0;
+    currentNgrams.forEach((c) => (currentTotalNgrams += c));
 
     const scoredList: { word: string; score: number; count: number }[] = [];
 
-    currentMetrics.wordSet.forEach((word) => {
-      const containsDigit = /\d/.test(word);
-      const isHttp = word.startsWith('http');
-      const countInCurrent = currentMetrics.wordCounts.get(word) || 0;
+    currentNgrams.forEach((countInCurrent, phrase) => {
+      // For single words (n=1), enforce minimum length > 2; otherwise allow any phrase
+      const isValidWord = n === 1 ? phrase.length > 2 : true;
 
-      if (word.length > 2 && !containsDigit && !isHttp && countInCurrent >= 2) {
-        const countInOthers = otherWordCounts.get(word) || 0;
+      if (countInCurrent >= 2 && isValidWord) {
+        const countInOthers = otherNgramCounts.get(phrase) || 0;
 
-        const frequencyInCurrent = (countInCurrent + 1) / (currentMetrics.words + 1);
-        const frequencyInOthers = (countInOthers + 1) / (otherTotalWords + 1);
+        const frequencyInCurrent = (countInCurrent + 1) / (currentTotalNgrams + 1);
+        const frequencyInOthers = (countInOthers + 1) / (otherTotalNgrams + 1);
 
         const score = frequencyInCurrent / frequencyInOthers;
 
         if (score >= 1.5) {
           scoredList.push({
-            word,
+            word: phrase,
             count: countInCurrent,
             score,
           });
@@ -168,7 +199,7 @@ export function App() {
     });
 
     return scoredList.sort((a, b) => b.score - a.score).slice(0, 150);
-  }, [currentRuleset, currentMetrics, dataMap, rulesets]);
+  }, [currentRuleset, currentMetrics, dataMap, rulesets, phraseLength]);
 
   const akaListWords = useMemo(() => {
     return getDistinctTopWords(topWords, currentRuleset?.name || '', 4);
@@ -230,10 +261,9 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
 
   const currentSizePct = getScaledSizePct(currentMetrics?.words);
 
-  // Custom inline style for size progress bar fills
   const sizeBarStyle: React.CSSProperties = {
-    backgroundColor: '#00b4d8', // Distinct teal/cyan color for size bars
-    backgroundImage: 'linear-[#0077b6], #00b4d8)',
+    backgroundColor: '#00b4d8',
+    backgroundImage: 'linear-gradient(to right, #0077b6, #00b4d8)',
   };
 
   return (
@@ -267,7 +297,6 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
             );
           })}
 
-          {/* Added Tools section */}
           <div className="nav-group">
             <div className="group-label">Tools</div>
             <div className="nav-list">
@@ -327,15 +356,40 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
               </div>
 
               <div className="card">
-                <div className="section-header">
-                  <h3>Top Words in Ruleset</h3>
-                  <button
-                    onClick={() => setShowTopWordsHelp(!showTopWordsHelp)}
-                    className="help-button"
-                    title={HELP_TEXTS.topWords(currentRuleset.name)}
-                  >
-                    ?
-                  </button>
+                <div className="section-header similarity-header">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <h3 style={{ margin: 0 }}>Top Phrases in Ruleset</h3>
+                    <button
+                      onClick={() => setShowTopWordsHelp(!showTopWordsHelp)}
+                      className="help-button"
+                      title={HELP_TEXTS.topWords(currentRuleset.name)}
+                    >
+                      ?
+                    </button>
+                  </div>
+
+                  {/* Phrase Length Number Input */}
+                  <div className="similarity-filter-group" style={{ alignItems: 'center', gap: '8px' }}>
+                    <label htmlFor="phrase-length-input" style={{ fontSize: '0.85rem', color: 'var(--text-secondary, #666)' }}>
+                      Phrase length (words):
+                    </label>
+                    <input
+                      id="phrase-length-input"
+                      type="number"
+                      min={1}
+                      max={20}
+                      value={phraseLength}
+                      onChange={handlePhraseLengthChange}
+                      style={{
+                        width: '56px',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        border: '1px solid var(--border-color, #ccc)',
+                        fontSize: '0.85rem',
+                        textAlign: 'center',
+                      }}
+                    />
+                  </div>
                 </div>
 
                 {showTopWordsHelp && (
@@ -363,7 +417,9 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
                       );
                     })
                   ) : (
-                    <span className="empty-words-text">No top words found.</span>
+                    <span className="empty-words-text">
+                      No top phrases found for {phraseLength}-word phrase{phraseLength > 1 ? 's' : ''}.
+                    </span>
                   )}
                 </div>
 
@@ -488,8 +544,8 @@ export const PRECOMPUTED_RULESETS: PrecomputedRuleset[] = ${JSON.stringify(expor
               </div>
 
               <div className="card">
-                <div className="section-header">
-                  <h3>Unique Words in Ruleset</h3>
+                <div className="section-header" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <h3 style={{ margin: 0 }}>Unique Words in Ruleset</h3>
                   <button
                     onClick={() => setShowUniqueWordsHelp(!showUniqueWordsHelp)}
                     className="help-button"
